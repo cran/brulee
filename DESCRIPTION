@@ -1,6 +1,6 @@
 Package: brulee
 Title: High-Level Modeling Functions with 'torch'
-Version: 0.0.1
+Version: 0.1.0
 Authors@R: c(
     person("Max", "Kuhn", , "max@rstudio.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2402-136X")),
@@ -11,7 +11,8 @@ Description: Provides high-level modeling functions to define and train
     models using the 'torch' R package. Models include linear, logistic, and 
     multinomial regression as well as multilayer perceptrons.
 License: MIT + file LICENSE
-URL: https://github.com/tidymodels/brulee
+URL: https://github.com/tidymodels/brulee,
+        https://tidymodels.github.io/brulee/
 BugReports: https://github.com/tidymodels/brulee/issues
 Imports: cli, coro (>= 1.0.1), dplyr, generics, ggplot2, glue, hardhat,
         rlang, stats, tibble, torch (>= 0.6.0), utils
@@ -22,10 +23,10 @@ Encoding: UTF-8
 Language: en-US
 RoxygenNote: 7.1.2
 NeedsCompilation: no
-Packaged: 2021-12-14 23:16:06 UTC; max
+Packaged: 2022-02-02 17:37:11 UTC; max
 Author: Max Kuhn [aut, cre] (<https://orcid.org/0000-0003-2402-136X>),
   Daniel Falbel [aut],
   RStudio [cph]
 Maintainer: Max Kuhn <max@rstudio.com>
 Repository: CRAN
-Date/Publication: 2021-12-15 19:50:04 UTC
+Date/Publication: 2022-02-02 17:50:02 UTC
