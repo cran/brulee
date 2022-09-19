@@ -37,10 +37,17 @@
 #'  "relu", "elu", "tanh", and "linear". If `hidden_units` is a vector, `activation`
 #'  can be a character vector with length equals to `length(hidden_units)` specifying
 #'  the activation for each hidden layer.
-#' @param learn_rate A positive number that controls the rapidity that the model
-#' moves along the descent path. Values around 0.1 or less are typical.
+#' @param optimizer The method used in the optimization procedure. Possible choices
+#'   are 'LBFGS' and 'SGD'. Default is 'LBFGS'.
+#' @param learn_rate A positive number that controls the initial rapidity that
+#' the model moves along the descent path. Values around 0.1 or less are
+#' typical.
+#' @param rate_schedule A single character value for how the learning rate
+#' should change as the optimization proceeds. Possible values are
+#' `"none"` (the default), `"decay_time"`, `"decay_expo"`, `"cyclic"` and
+#' `"step"`. See [schedule_decay_time()] for more details.
 #' @param momentum A positive number usually on `[0.50, 0.99]` for the momentum
-#' parameter in gradient descent.
+#' parameter in gradient descent.  (`optimizer = "SGD"` only)
 #' @param dropout The proportion of parameters set to zero.
 #' @param class_weights Numeric class weights (classification only). The value
 #' can be:
@@ -54,11 +61,13 @@
 #' @param validation The proportion of the data randomly assigned to a
 #'  validation set.
 #' @param batch_size An integer for the number of training set points in each
-#'  batch.
+#'  batch. (`optimizer = "SGD"` only)
 #' @param stop_iter A non-negative integer for how many iterations with no
 #' improvement before stopping.
 #' @param verbose A logical that prints out the iteration history.
-#' @param ... Not currently used, but required for extensibility.
+#' @param ... Options to pass to the learning rate schedulers via
+#' [set_learn_rate()]. For example, the `reduction` or `steps` arguments to
+#' [schedule_step()] could be passed here.
 #'
 #' @details
 #'
@@ -89,6 +98,13 @@
 #' parameters to be strictly zero (as it does in packages such as \pkg{glmnet}).
 #' The zeroing out of parameters is a specific feature the optimization method
 #' used in those packages.
+#'
+#' ## Learning Rates
+#'
+#' The learning rate can be set to constant (the default) or dynamically set
+#' via a learning rate scheduler (via the `rate_schedule`). Using
+#' `rate_schedule = 'none'` uses the `learn_rate` argument. Otherwise, any
+#' arguments to the schedulers can be passed via `...`.
 #'
 #' @seealso [predict.brulee_mlp()], [coef.brulee_mlp()], [autoplot.brulee_mlp()]
 #' @return
@@ -126,8 +142,7 @@
 #'  set.seed(1)
 #'  fit <-
 #'    brulee_mlp(x = as.matrix(ames_train[, c("Longitude", "Latitude")]),
-#'                y = ames_train$Sale_Price,
-#'                penalty = 0.10, batch_size = 2^8)
+#'                y = ames_train$Sale_Price, penalty = 0.10)
 #'
 #'  # Using recipe
 #'  library(recipes)
@@ -149,7 +164,7 @@
 #'
 #'  set.seed(2)
 #'  fit <- brulee_mlp(ames_rec, data = ames_train, hidden_units = 20,
-#'                     dropout = 0.05, batch_size = 2^8)
+#'                     dropout = 0.05, rate_schedule = "cyclic", step_size = 4)
 #'  fit
 #'
 #'  autoplot(fit)
@@ -168,7 +183,7 @@
 #'  predict(fit, ames_test) %>%
 #'    bind_cols(ames_test) %>%
 #'    rmse(Sale_Price, .pred)
-#'  }
+#'
 #'
 #'  # ------------------------------------------------------------------------------
 #'  # classification
@@ -199,6 +214,7 @@
 #'   geom_contour(aes(z = .pred_Class1), breaks = 1/2, col = "black") +
 #'   geom_point(data = parabolic_te, aes(col = class))
 #'
+#'  }
 #' }
 #' @export
 brulee_mlp <- function(x, ...) {
@@ -225,7 +241,9 @@ brulee_mlp.data.frame <-
            mixture = 0,
            dropout = 0,
            validation = 0.1,
+           optimizer = "LBFGS",
            learn_rate = 0.01,
+           rate_schedule = "none",
            momentum = 0.0,
            batch_size = NULL,
            class_weights = NULL,
@@ -240,10 +258,12 @@ brulee_mlp.data.frame <-
       hidden_units = hidden_units,
       activation = activation,
       learn_rate = learn_rate,
+      rate_schedule = rate_schedule,
       penalty = penalty,
       mixture = mixture,
       dropout = dropout,
       validation = validation,
+      optimizer = optimizer,
       momentum = momentum,
       batch_size = batch_size,
       class_weights = class_weights,
@@ -266,7 +286,9 @@ brulee_mlp.matrix <- function(x,
                               mixture = 0,
                               dropout = 0,
                               validation = 0.1,
+                              optimizer = "LBFGS",
                               learn_rate = 0.01,
+                              rate_schedule = "none",
                               momentum = 0.0,
                               batch_size = NULL,
                               class_weights = NULL,
@@ -281,11 +303,13 @@ brulee_mlp.matrix <- function(x,
     hidden_units = hidden_units,
     activation = activation,
     learn_rate = learn_rate,
+    rate_schedule = rate_schedule,
     momentum = momentum,
     penalty = penalty,
     mixture = mixture,
     dropout = dropout,
     validation = validation,
+    optimizer = optimizer,
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
@@ -308,7 +332,9 @@ brulee_mlp.formula <-
            mixture = 0,
            dropout = 0,
            validation = 0.1,
+           optimizer = "LBFGS",
            learn_rate = 0.01,
+           rate_schedule = "none",
            momentum = 0.0,
            batch_size = NULL,
            class_weights = NULL,
@@ -323,11 +349,13 @@ brulee_mlp.formula <-
       hidden_units = hidden_units,
       activation = activation,
       learn_rate = learn_rate,
+      rate_schedule = rate_schedule,
       momentum = momentum,
       penalty = penalty,
       mixture = mixture,
       dropout = dropout,
       validation = validation,
+      optimizer = optimizer,
       batch_size = batch_size,
       class_weights = class_weights,
       stop_iter = stop_iter,
@@ -350,7 +378,9 @@ brulee_mlp.recipe <-
            mixture = 0,
            dropout = 0,
            validation = 0.1,
+           optimizer = "LBFGS",
            learn_rate = 0.01,
+           rate_schedule = "none",
            momentum = 0.0,
            batch_size = NULL,
            class_weights = NULL,
@@ -365,11 +395,13 @@ brulee_mlp.recipe <-
       hidden_units = hidden_units,
       activation = activation,
       learn_rate = learn_rate,
+      rate_schedule = rate_schedule,
       momentum = momentum,
       penalty = penalty,
       mixture = mixture,
       dropout = dropout,
       validation = validation,
+      optimizer = optimizer,
       batch_size = batch_size,
       class_weights = class_weights,
       stop_iter = stop_iter,
@@ -382,8 +414,9 @@ brulee_mlp.recipe <-
 # Bridge
 
 brulee_mlp_bridge <- function(processed, epochs, hidden_units, activation,
-                              learn_rate, momentum, penalty, mixture, dropout, class_weights,
-                              validation, batch_size, stop_iter, verbose, ...) {
+                              learn_rate, rate_schedule, momentum, penalty,
+                              mixture, dropout, class_weights, validation, optimizer,
+                              batch_size, stop_iter, verbose, ...) {
   if(!torch::torch_is_installed()) {
     rlang::abort("The torch backend has not been installed; use `torch::install_torch()`.")
   }
@@ -403,6 +436,10 @@ brulee_mlp_bridge <- function(processed, epochs, hidden_units, activation,
     rlang::abort("'activation' must be a single value or a vector with the same length as 'hidden_units'")
   }
 
+  if (optimizer == "LBFGS" & !is.null(batch_size)) {
+   rlang::warn("'batch_size' is only use for the SGD optimizer.")
+  }
+
   check_integer(epochs, single = TRUE, 1, fn = f_nm)
   if (!is.null(batch_size)) {
     if (is.numeric(batch_size) & !is.integer(batch_size)) {
@@ -419,6 +456,8 @@ brulee_mlp_bridge <- function(processed, epochs, hidden_units, activation,
   check_double(learn_rate, single = TRUE, 0, incl = c(FALSE, TRUE), fn = f_nm)
   check_logical(verbose, single = TRUE, fn = f_nm)
   check_character(activation, single = FALSE, fn = f_nm)
+
+
 
   ## -----------------------------------------------------------------------------
 
@@ -456,15 +495,18 @@ brulee_mlp_bridge <- function(processed, epochs, hidden_units, activation,
       hidden_units = hidden_units,
       activation = activation,
       learn_rate = learn_rate,
+      rate_schedule = rate_schedule,
       momentum = momentum,
       penalty = penalty,
       mixture = mixture,
       dropout = dropout,
       validation = validation,
+      optimizer = optimizer,
       batch_size = batch_size,
       class_weights = class_weights,
       stop_iter = stop_iter,
-      verbose = verbose
+      verbose = verbose,
+      ...
     )
 
   new_brulee_mlp(
@@ -528,7 +570,9 @@ mlp_fit_imp <-
            mixture = 0,
            dropout = 0,
            validation = 0.1,
+           optimizer = "LBFGS",
            learn_rate = 0.01,
+           rate_schedule = "none",
            momentum = 0.0,
            activation = "relu",
            class_weights = NULL,
@@ -612,9 +656,16 @@ mlp_fit_imp <-
     model <- mlp_module(ncol(x), hidden_units, activation, dropout, y_dim)
     loss_fn <- make_penalized_loss(loss_fn, model, penalty, mixture)
 
-    # Write a optim wrapper
-    optimizer <-
+    # Set the optimizer
+    if (optimizer == "LBFGS") {
+     optimizer <- torch::optim_lbfgs(model$parameters, lr = learn_rate,
+                                     history_size = 5)
+    } else if (optimizer == "SGD") {
+     optimizer <-
       torch::optim_sgd(model$parameters, lr = learn_rate, momentum = momentum)
+    } else {
+     rlang::abort(paste0("Unknown optimizer '", optimizer, "'"))
+    }
 
     ## ---------------------------------------------------------------------------
 
@@ -634,16 +685,29 @@ mlp_fit_imp <-
     # Optimize parameters
     for (epoch in 1:epochs) {
 
+     # For future work with other optimizers, see
+     # https://github.com/tidymodels/brulee/pull/56#discussion_r972049108
+     # "Creating a new optimizer every epoch will reset the optimizer state.
+     # For example, SGD with momentum keeps track of the latest update for each
+     # parameter, so it might be OK to just restart.
+     # But other optimizers like Adam, will keep a moving average of updates and
+     # resetting them can interfere in training."
+
+     learn_rate <- set_learn_rate(epoch - 1, learn_rate, type = rate_schedule, ...)
+     optimizer <- torch::optim_sgd(model$parameters, lr = learn_rate, momentum = momentum)
+
       # training loop
       coro::loop(
-        for (batch in dl) {
-          pred <- model(batch$x)
-          loss <- loss_fn(pred, batch$y, class_weights)
-
-          optimizer$zero_grad()
-          loss$backward()
-          optimizer$step()
+       for (batch in dl) {
+        cl <- function() {
+         optimizer$zero_grad()
+         pred <- model(batch$x)
+         loss <- loss_fn(pred, batch$y, class_weights)
+         loss$backward()
+         loss
         }
+        optimizer$step(cl)
+       }
       )
 
       # calculate loss on the full datasets
@@ -680,8 +744,8 @@ mlp_fit_imp <-
         lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
 
       if (verbose) {
-        msg <- paste("epoch:", epoch_chr[epoch], loss_label,
-                     signif(loss_curr, 5), loss_note)
+        msg <- paste("epoch:", epoch_chr[epoch], "learn rate", signif(learn_rate, 3),
+                     loss_label, signif(loss_curr, 3), loss_note)
 
         rlang::inform(msg)
       }
@@ -706,10 +770,21 @@ mlp_fit_imp <-
       best_epoch = best_epoch,
       dims = list(p = p, n = n, h = hidden_units, y = y_dim, levels = lvls, features = colnames(x)),
       y_stats = y_stats,
-      parameters = list(activation = activation, hidden_units = hidden_units,
-                        learn_rate = learn_rate, class_weights = class_weights,
-                        penalty = penalty, mixture = mixture, dropout = dropout, validation = validation,
-                        batch_size = batch_size, momentum = momentum)
+      parameters = list(
+       activation = activation,
+       hidden_units = hidden_units,
+       learn_rate = learn_rate,
+       class_weights = class_weights,
+       penalty = penalty,
+       mixture = mixture,
+       dropout = dropout,
+       validation = validation,
+       optimizer = optimizer,
+       batch_size = batch_size,
+       momentum = momentum,
+       sched = rate_schedule,
+       sched_opt = list(...)
+      )
     )
   }
 

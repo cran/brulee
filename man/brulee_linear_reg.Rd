@@ -88,7 +88,9 @@ created from \code{\link[recipes:recipe]{recipes::recipe()}}.
 
 The predictor data should be standardized (e.g. centered or scaled).}
 
-\item{...}{Not currently used, but required for extensibility.}
+\item{...}{Options to pass to the learning rate schedulers via
+\code{\link[=set_learn_rate]{set_learn_rate()}}. For example, the \code{reduction} or \code{steps} arguments to
+\code{\link[=schedule_step]{schedule_step()}} could be passed here.}
 
 \item{y}{When \code{x} is a \strong{data frame} or \strong{matrix}, \code{y} is the outcome
 specified as:
@@ -112,15 +114,15 @@ validation set.}
 \item{optimizer}{The method used in the optimization procedure. Possible choices
 are 'LBFGS' and 'SGD'. Default is 'LBFGS'.}
 
-\item{learn_rate}{A positive number that controls the rapidity that the model
-moves along the descent path. Values less that 0.1 are typical.
-(\code{optimizer = "SGD"} only)}
+\item{learn_rate}{A positive number that controls the initial rapidity that
+the model moves along the descent path. Values around 0.1 or less are
+typical.}
 
 \item{momentum}{A positive number usually on \verb{[0.50, 0.99]} for the momentum
 parameter in gradient descent.  (\code{optimizer = "SGD"} only)}
 
 \item{batch_size}{An integer for the number of training set points in each
-batch.}
+batch. (\code{optimizer = "SGD"} only)}
 
 \item{stop_iter}{A non-negative integer for how many iterations with no
 improvement before stopping.}

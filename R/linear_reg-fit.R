@@ -24,13 +24,6 @@
 #'
 #' @inheritParams brulee_mlp
 #'
-#' @param optimizer The method used in the optimization procedure. Possible choices
-#'   are 'LBFGS' and 'SGD'. Default is 'LBFGS'.
-#' @param learn_rate A positive number that controls the rapidity that the model
-#' moves along the descent path. Values less that 0.1 are typical.
-#' (`optimizer = "SGD"` only)
-#' @param momentum A positive number usually on `[0.50, 0.99]` for the momentum
-#' parameter in gradient descent.  (`optimizer = "SGD"` only)
 #' @details
 #'
 #' This function fits a linear combination of coefficients and predictors to
@@ -558,7 +551,7 @@ linear_reg_fit_imp <-
 
       if (verbose) {
         msg <- paste("epoch:", epoch_chr[epoch], loss_label,
-                     signif(loss_curr, 5), loss_note)
+                     signif(loss_curr, 3), loss_note)
 
         rlang::inform(msg)
       }

@@ -92,7 +92,9 @@ created from \code{\link[recipes:recipe]{recipes::recipe()}}.
 
 The predictor data should be standardized (e.g. centered or scaled).}
 
-\item{...}{Not currently used, but required for extensibility.}
+\item{...}{Options to pass to the learning rate schedulers via
+\code{\link[=set_learn_rate]{set_learn_rate()}}. For example, the \code{reduction} or \code{steps} arguments to
+\code{\link[=schedule_step]{schedule_step()}} could be passed here.}
 
 \item{y}{When \code{x} is a \strong{data frame} or \strong{matrix}, \code{y} is the outcome
 specified as:
@@ -124,7 +126,7 @@ moves along the descent path. Values around 0.1 or less are typical.
 parameter in gradient descent.  (\code{optimizer = "SGD"} only)}
 
 \item{batch_size}{An integer for the number of training set points in each
-batch.}
+batch. (\code{optimizer = "SGD"} only)}
 
 \item{class_weights}{Numeric class weights (classification only). The value
 can be:
@@ -192,6 +194,7 @@ The zeroing out of parameters is a specific feature the optimization method
 used in those packages.
 }
 \examples{
+\donttest{
 if (torch::torch_is_installed()) {
 
  library(recipes)
@@ -237,7 +240,7 @@ if (torch::torch_is_installed()) {
   bind_cols(cells_test) \%>\%
   roc_auc(class, .pred_PS)
 }
-
+}
 }
 \seealso{
 \code{\link[=predict.brulee_logistic_reg]{predict.brulee_logistic_reg()}}, \code{\link[=coef.brulee_logistic_reg]{coef.brulee_logistic_reg()}},
