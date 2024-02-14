@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# brulee <a href="https://tidymodels.github.io/brulee/"><img src="man/figures/logo.png" align="right" height="139" /></a>
+# brulee <a href="https://brulee.tidymodels.org/"><img src="man/figures/logo.png" align="right" height="139" alt="a dish of creme brulee on a striped background" /></a>
 
 <!-- badges: start -->
 
@@ -16,13 +16,13 @@ The R `brulee` package contains several basic modeling functions that
 use the `torch` package infrastructure, such as:
 
 - [neural
-  networks](https://tidymodels.github.io/brulee/reference/brulee_mlp.html)
+  networks](https://brulee.tidymodels.org/reference/brulee_mlp.html)
 - [linear
-  regression](https://tidymodels.github.io/brulee/reference/brulee_linear_reg.html)
+  regression](https://brulee.tidymodels.org/reference/brulee_linear_reg.html)
 - [logistic
-  regression](https://tidymodels.github.io/brulee/reference/brulee_logistic_reg.html)
+  regression](https://brulee.tidymodels.org/reference/brulee_logistic_reg.html)
 - [multinomial
-  regression](https://tidymodels.github.io/brulee/reference/brulee_multinomial_reg.html)
+  regression](https://brulee.tidymodels.org/reference/brulee_multinomial_reg.html)
 
 ## Installation
 
@@ -37,8 +37,8 @@ And the development version from
 [GitHub](https://github.com/tidymodels/brulee) with:
 
 ``` r
-# install.packages("devtools")
-devtools::install_github("tidymodels/brulee")
+# install.packages("pak")
+pak::pak("tidymodels/brulee")
 ```
 
 ## Example
@@ -63,7 +63,7 @@ predict(nn_log_biv, bivariate_test, type = "prob") %>%
 #> # A tibble: 1 × 3
 #>   .metric .estimator .estimate
 #>   <chr>   <chr>          <dbl>
-#> 1 roc_auc binary         0.410
+#> 1 roc_auc binary         0.837
 ```
 
 A recipe can also be used if the data require some sort of preprocessing
@@ -88,7 +88,7 @@ predict(nn_rec_biv, bivariate_test, type = "prob") %>%
 #> # A tibble: 1 × 3
 #>   .metric .estimator .estimate
 #>   <chr>   <chr>          <dbl>
-#> 1 roc_auc binary         0.708
+#> 1 roc_auc binary         0.866
 ```
 
 ## Code of Conduct
