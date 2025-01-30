@@ -71,9 +71,12 @@
 #'
 #' @examples
 #' \donttest{
-#' if (torch::torch_is_installed()) {
+#' if (torch::torch_is_installed()  & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 #'
 #'  ## -----------------------------------------------------------------------------
+#'
+#'  library(recipes)
+#'  library(yardstick)
 #'
 #'  data(ames, package = "modeldata")
 #'
@@ -465,11 +468,11 @@ linear_reg_fit_imp <-
 
     ## ---------------------------------------------------------------------------
     # Convert to index sampler and data loader
-    ds <- brulee::matrix_to_dataset(x, y)
+    ds <- matrix_to_dataset(x, y)
     dl <- torch::dataloader(ds, batch_size = batch_size)
 
     if (validation > 0) {
-      ds_val <- brulee::matrix_to_dataset(x_val, y_val)
+      ds_val <- matrix_to_dataset(x_val, y_val)
       dl_val <- torch::dataloader(ds_val)
     }
 
