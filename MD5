@@ -1,7 +1,7 @@
-573e028e191cb64e775877d4836f6f3e *DESCRIPTION
+2b794b7869acbc747f4042d3a8de4106 *DESCRIPTION
 c26635354452784bb2d53caf3a579c3c *LICENSE
 b75d9739b0801eb6de9f62bc8f6b8b92 *NAMESPACE
-975a79b34343c00fbeef63aef9b3d05e *NEWS.md
+73c50db1c05ee3290ba25ac5c2fe6a98 *NEWS.md
 60a5e66bdfc94d45117f6832f8463792 *R/0_utils.R
 c21bcbbd6f6e2464d765a9ada170a576 *R/aaa.R
 c919699b61047cc08b9f1083b9cf72f8 *R/activation.R
@@ -44,7 +44,6 @@ a16d09850584f21b563a21f53bfbbc66 *tests/testthat.R
 51e049770f348e979e8c1cdc75e9ceef *tests/testthat/_snaps/checks.md
 8bce1bac709de886ff272b40ed12c9ad *tests/testthat/_snaps/class-weight.md
 194716c2ed7e8e4d10d023f365816f49 *tests/testthat/_snaps/mlp-regression.md
-caad8787d0fc97c0381a4956778bdf89 *tests/testthat/_snaps/overflow.md
 eaa403edb354e421267887c7227b12d8 *tests/testthat/_snaps/schedulers.md
 d664239f87758fd12c18a270760dffb0 *tests/testthat/test-checks.R
 8bfb498544b28b9685ca3a6785096fe8 *tests/testthat/test-class-weight.R
@@ -55,5 +54,4 @@ d2032ed09e6592b4a70ebbc637e2e908 *tests/testthat/test-logistic_reg-fit.R
 fa3e802c6ab482a26929d30b18908aa8 *tests/testthat/test-mlp-multinomial.R
 15e7dd5af5b21fef34aec63e7f13804b *tests/testthat/test-mlp-regression.R
 be8ee3b59a43668a30d58f45a6101233 *tests/testthat/test-multinomial_reg-fit.R
-d9142114f5c4f94ef15d16239134c08b *tests/testthat/test-overflow.R
 7f5ef5cbb7c777c4c231fcaab3915f88 *tests/testthat/test-schedulers.R

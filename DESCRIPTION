@@ -1,6 +1,6 @@
 Package: brulee
 Title: High-Level Modeling Functions with 'torch'
-Version: 0.4.0
+Version: 0.5.0
 Authors@R: c(
     person("Max", "Kuhn", , "max@posit.co", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2402-136X")),
@@ -24,10 +24,10 @@ Encoding: UTF-8
 Language: en-US
 RoxygenNote: 7.3.2
 NeedsCompilation: no
-Packaged: 2025-01-30 21:36:04 UTC; max
+Packaged: 2025-04-07 12:00:34 UTC; max
 Author: Max Kuhn [aut, cre] (<https://orcid.org/0000-0003-2402-136X>),
   Daniel Falbel [aut],
   Posit Software, PBC [cph, fnd]
 Maintainer: Max Kuhn <max@posit.co>
 Repository: CRAN
-Date/Publication: 2025-01-30 22:10:06 UTC
+Date/Publication: 2025-04-07 13:50:02 UTC
