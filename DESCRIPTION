@@ -1,6 +1,6 @@
 Package: brulee
 Title: High-Level Modeling Functions with 'torch'
-Version: 0.5.0
+Version: 0.6.0
 Authors@R: c(
     person("Max", "Kuhn", , "max@posit.co", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2402-136X")),
@@ -14,6 +14,7 @@ License: MIT + file LICENSE
 URL: https://github.com/tidymodels/brulee,
         https://brulee.tidymodels.org/
 BugReports: https://github.com/tidymodels/brulee/issues
+Depends: R (>= 4.1)
 Imports: cli, coro (>= 1.0.1), dplyr, generics, ggplot2, glue, hardhat,
         rlang (>= 1.1.1), stats, tibble, torch (>= 0.13.0), utils
 Suggests: covr, modeldata, purrr, recipes, spelling, testthat,
@@ -24,10 +25,10 @@ Encoding: UTF-8
 Language: en-US
 RoxygenNote: 7.3.2
 NeedsCompilation: no
-Packaged: 2025-04-07 12:00:34 UTC; max
-Author: Max Kuhn [aut, cre] (<https://orcid.org/0000-0003-2402-136X>),
+Packaged: 2025-09-02 01:25:45 UTC; max
+Author: Max Kuhn [aut, cre] (ORCID: <https://orcid.org/0000-0003-2402-136X>),
   Daniel Falbel [aut],
   Posit Software, PBC [cph, fnd]
 Maintainer: Max Kuhn <max@posit.co>
 Repository: CRAN
-Date/Publication: 2025-04-07 13:50:02 UTC
+Date/Publication: 2025-09-02 02:10:03 UTC

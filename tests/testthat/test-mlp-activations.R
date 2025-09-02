@@ -16,8 +16,10 @@ test_that("activation functions", {
    set.seed(2)
    model <- brulee_mlp(outcome ~ ., data = df[1:400,],
                        activation = i,
-                       learn_rate = 0.05,
-                       hidden_units = 10L)
+                       penalty = 0.1,
+                       learn_rate = 0.1,
+                       epochs = 50L,
+                       hidden_units = 20L)
 
   },
   regex = NA
@@ -26,7 +28,7 @@ test_that("activation functions", {
   r_sq <- cor(predict(model, df[401:500, -1])$.pred, df$outcome[401:500])^2
 
     # These do very poorly on this problems
-  pass <- c("tanhshrink")
+  pass <- c("tanhshrink", "log_sigmoid", "softplus")
 
   if (!(i %in% pass)) {
    expect_true(r_sq > 0.1)

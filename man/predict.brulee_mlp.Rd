@@ -34,6 +34,7 @@ to be the same as the number of rows in \code{new_data}.
 Predict from a \code{brulee_mlp}
 }
 \examples{
+\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))) {
  # regression example:
@@ -51,7 +52,7 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))
  library(recipes)
 
  ames_rec <-
-  recipe(Sale_Price ~ Longitude + Latitude, data = ames_train) \%>\%
+  recipe(Sale_Price ~ Longitude + Latitude, data = ames_train) |>
     step_normalize(all_numeric_predictors())
 
  set.seed(2)
@@ -60,4 +61,5 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))
  predict(fit, ames_test)
 }
 }
+\dontshow{\}) # examplesIf}
 }

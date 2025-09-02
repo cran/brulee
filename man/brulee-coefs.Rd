@@ -32,6 +32,7 @@ a list of arrays.
 Extract Model Coefficients
 }
 \examples{
+\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))) {
 
@@ -48,15 +49,15 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))
  library(recipes)
 
  ames_rec <-
-  recipe(Sale_Price ~ Longitude + Latitude, data = ames_train) \%>\%
+  recipe(Sale_Price ~ Longitude + Latitude, data = ames_train) |>
     step_normalize(all_numeric_predictors())
 
  set.seed(2)
- fit <- brulee_linear_reg(ames_rec, data = ames_train,
-                           epochs = 50, batch_size = 32)
+ fit <- brulee_linear_reg(ames_rec, data = ames_train, epochs = 50)
 
  coef(fit)
  coef(fit, epoch = 1)
 }
 }
+\dontshow{\}) # examplesIf}
 }

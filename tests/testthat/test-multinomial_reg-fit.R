@@ -37,8 +37,8 @@ test_that("basic multinomial regression LBFGS", {
 
  expect_error(
   mnl_pred_lbfgs <-
-   predict(mnl_fit_lbfgs, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
@@ -61,7 +61,7 @@ test_that("basic multinomial regression LBFGS", {
 
  # Did it learn anything?
  mnl_brier_lbfgs <-
-  mnl_pred_lbfgs %>%
+  mnl_pred_lbfgs |>
   yardstick::brier_class(class, .pred_one, .pred_two, .pred_three)
 
  expect_true(mnl_brier_lbfgs$.estimate < (1 - 1/num_class)^2)
@@ -102,21 +102,21 @@ test_that("basic multinomial regression SGD", {
                           penalty = 0,
                           dropout = .1,
                           optimize = "SGD",
-                          batch_size = 64,
+                          batch_size = 64L,
                           momentum = 0.5,
                           learn_rate = 0.1)},
   regex = NA)
 
  expect_error(
   mnl_pred_sgd <-
-   predict(mnl_fit_sgd, mnl_te) %>%
-   bind_cols(predict(mnl_fit_sgd, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_sgd, mnl_te) |>
+   bind_cols(predict(mnl_fit_sgd, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
  # Did it learn anything?
  mnl_brier_sgd <-
-  mnl_pred_sgd %>%
+  mnl_pred_sgd |>
   yardstick::brier_class(class, .pred_one, .pred_two, .pred_three)
 
  expect_true(mnl_brier_sgd$.estimate < (1 - 1/num_class)^2)
@@ -171,8 +171,8 @@ test_that("multinomial regression class weights", {
 
  expect_error(
   mnl_pred_lbfgs_wts <-
-   predict(mnl_fit_lbfgs_wts, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs_wts, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs_wts, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs_wts, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
@@ -191,8 +191,8 @@ test_that("multinomial regression class weights", {
 
  expect_error(
   mnl_pred_lbfgs_unwt <-
-   predict(mnl_fit_lbfgs_unwt, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs_unwt, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs_unwt, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs_unwt, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 

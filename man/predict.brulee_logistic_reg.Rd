@@ -33,6 +33,7 @@ to be the same as the number of rows in \code{new_data}.
 Predict from a \code{brulee_logistic_reg}
 }
 \examples{
+\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 
@@ -41,15 +42,15 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
 
   data(penguins, package = "modeldata")
 
-  penguins <- penguins \%>\% na.omit()
+  penguins <- penguins |> na.omit()
 
   set.seed(122)
   in_train <- sample(1:nrow(penguins), 200)
   penguins_train <- penguins[ in_train,]
   penguins_test  <- penguins[-in_train,]
 
-  rec <- recipe(sex ~ ., data = penguins_train) \%>\%
-    step_dummy(all_nominal_predictors()) \%>\%
+  rec <- recipe(sex ~ ., data = penguins_train) |>
+    step_dummy(all_nominal_predictors()) |>
     step_normalize(all_numeric_predictors())
 
   set.seed(3)
@@ -58,11 +59,12 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
 
   predict(fit, penguins_test)
 
-  predict(fit, penguins_test, type = "prob") \%>\%
-    bind_cols(penguins_test) \%>\%
-    roc_curve(sex, .pred_female) \%>\%
+  predict(fit, penguins_test, type = "prob") |>
+    bind_cols(penguins_test) |>
+    roc_curve(sex, .pred_female) |>
     autoplot()
 
 }
 }
+\dontshow{\}) # examplesIf}
 }

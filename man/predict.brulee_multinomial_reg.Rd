@@ -33,6 +33,7 @@ to be the same as the number of rows in \code{new_data}.
 Predict from a \code{brulee_multinomial_reg}
 }
 \examples{
+\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 
@@ -41,24 +42,25 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
 
   data(penguins, package = "modeldata")
 
-  penguins <- penguins \%>\% na.omit()
+  penguins <- penguins |> na.omit()
 
   set.seed(122)
   in_train <- sample(1:nrow(penguins), 200)
   penguins_train <- penguins[ in_train,]
   penguins_test  <- penguins[-in_train,]
 
-  rec <- recipe(island ~ ., data = penguins_train) \%>\%
-    step_dummy(species, sex) \%>\%
+  rec <- recipe(island ~ ., data = penguins_train) |>
+    step_dummy(species, sex) |>
     step_normalize(all_numeric_predictors())
 
   set.seed(3)
   fit <- brulee_multinomial_reg(rec, data = penguins_train, epochs = 5)
   fit
 
-  predict(fit, penguins_test) \%>\%
-    bind_cols(penguins_test) \%>\%
+  predict(fit, penguins_test) |>
+    bind_cols(penguins_test) |>
     conf_mat(island, .pred_class)
 }
 }
+\dontshow{\}) # examplesIf}
 }

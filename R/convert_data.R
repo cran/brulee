@@ -9,18 +9,18 @@
 #' @return An R6 index sampler object with classes "training_set",
 #'  "dataset", and "R6".
 #' @details Missing values should be removed before passing data to this function.
-#' @examples
+#' @examplesIf !brulee:::is_cran_check()
 #' if (torch::torch_is_installed()) {
 #'   matrix_to_dataset(as.matrix(mtcars[, -1]), mtcars$mpg)
 #' }
 #' @export
 matrix_to_dataset <- function(x, y) {
-  x <- torch::torch_tensor(x)
+  x <- float_64(x)
   if (is.factor(y)) {
     y <- as.numeric(y)
-    y <- torch::torch_tensor(y, dtype = torch_long())
+    y <- torch::torch_tensor(y, dtype = torch::torch_long())
   } else {
-    y <- torch::torch_tensor(y)
+    y <- float_64(y)
   }
   torch::tensor_dataset(x = x, y = y)
 }
@@ -36,5 +36,5 @@ scale_stats <- function(x) {
 }
 
 scale_y <- function(y, stats) {
-  (y - stats$mean)/stats$sd
+  (y - stats$mean) / stats$sd
 }

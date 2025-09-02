@@ -1,4 +1,24 @@
-# brulee (0.5.0)
+# brulee 0.6.0
+
+* Transition from the magrittr pipe to the base R pipe.
+
+* To try to help avoiding numeric overflow in the loss functions: 
+
+  * Tensors are stored as a 64-bit float instead of 32-bit. 
+  
+  * Starting values were transitioned to using Gaussian distribution (instead of uniform) with a smaller standard deviation. 
+  
+  * The results always contain the initial results to use as a fallback if there is overflow during the first epoch.
+
+  * `brulee_mlp()` has two additional parameters, `grad_value_clip` and `grad_value_clip`, that prevent issues. 
+  
+  * The warning was changed to "Early stopping occurred at epoch {X} due to numerical overflow of the loss function."
+
+* Several new SGD optimizers were added: `"ADAMw"`, `"Adadelta"`, `"Adagrad"`, and `"RMSprop"`.
+
+* Mixture parameter values different than zero cannot be used for several optimizers since they require L2 penalties. 
+
+# brulee 0.5.0
 
  * Removed a unit test for numerical overflow since it occurs less frequently and has become increasingly more challenging to reproduce.
  

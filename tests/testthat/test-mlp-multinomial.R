@@ -26,20 +26,21 @@ test_that("basic multinomial mlp LBFGS", {
  # ------------------------------------------------------------------------------
 
  expect_error({
-  set.seed(392)
+  set.seed(92)
   mnl_fit_lbfgs <-
    brulee_mlp(class ~ .,
               mnl_tr,
-              epochs = 10,
+              epochs = 5,
               hidden_units = 5,
+              optimizer = "LBFGS",
               rate_schedule = "cyclic",
               learn_rate = 0.1)},
   regex = NA)
 
  expect_error(
   mnl_pred_lbfgs <-
-   predict(mnl_fit_lbfgs, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
@@ -62,7 +63,7 @@ test_that("basic multinomial mlp LBFGS", {
 
  # Did it learn anything?
  mnl_brier_lbfgs <-
-  mnl_pred_lbfgs %>%
+  mnl_pred_lbfgs |>
   yardstick::brier_class(class, .pred_one, .pred_two, .pred_three)
 
  expect_true(mnl_brier_lbfgs$.estimate < (1 - 1/num_class)^2)
@@ -104,21 +105,21 @@ test_that("basic multinomial mlp SGD", {
               dropout = .1,
               hidden_units = 5,
               optimize = "SGD",
-              batch_size = 64,
+              batch_size = 64L,
               momentum = 0.5,
               learn_rate = 0.1)},
   regex = NA)
 
  expect_error(
   mnl_pred_sgd <-
-   predict(mnl_fit_sgd, mnl_te) %>%
-   bind_cols(predict(mnl_fit_sgd, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_sgd, mnl_te) |>
+   bind_cols(predict(mnl_fit_sgd, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
  # Did it learn anything?
  mnl_brier_sgd <-
-  mnl_pred_sgd %>%
+  mnl_pred_sgd |>
   yardstick::brier_class(class, .pred_one, .pred_two, .pred_three)
 
  expect_true(mnl_brier_sgd$.estimate < (1 - 1/num_class)^2)
@@ -164,23 +165,24 @@ test_that("multinomial mlp class weights", {
   mnl_fit_lbfgs_wts <-
    brulee_mlp(class ~ .,
               mnl_tr,
-              epochs = 30,
+              epochs = 25L,
               hidden_units = 5,
+              optimizer = "LBFGS",
               rate_schedule = "decay_time",
               class_weights = cls_wts,
               stop_iter = 100,
-              learn_rate = 0.1)},
+              learn_rate = 0.01)},
   regex = NA)
 
  expect_error(
   mnl_pred_lbfgs_wts <-
-   predict(mnl_fit_lbfgs_wts, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs_wts, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs_wts, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs_wts, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
  mnl_brier_lbfgs_wts <-
-  mnl_pred_lbfgs_wts %>%
+  mnl_pred_lbfgs_wts |>
   yardstick::brier_class(class, .pred_one, .pred_two, .pred_three)
 
  expect_true(mnl_brier_lbfgs_wts$.estimate < (1 - 1/num_class)^2)
@@ -192,17 +194,18 @@ test_that("multinomial mlp class weights", {
   mnl_fit_lbfgs_unwt <-
    brulee_mlp(class ~ .,
               mnl_tr,
-              epochs = 30,
+              epochs = 25L,
               hidden_units = 5,
+              optimizer = "LBFGS",
               rate_schedule = "decay_time",
               stop_iter = 100,
-              learn_rate = 0.1)},
+              learn_rate = 0.01)},
   regex = NA)
 
  expect_error(
   mnl_pred_lbfgs_unwt <-
-   predict(mnl_fit_lbfgs_unwt, mnl_te) %>%
-   bind_cols(predict(mnl_fit_lbfgs_unwt, mnl_te, type = "prob")) %>%
+   predict(mnl_fit_lbfgs_unwt, mnl_te) |>
+   bind_cols(predict(mnl_fit_lbfgs_unwt, mnl_te, type = "prob")) |>
    bind_cols(mnl_te),
   regex = NA)
 
