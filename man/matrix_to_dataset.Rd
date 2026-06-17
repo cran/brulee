@@ -4,13 +4,16 @@
 \alias{matrix_to_dataset}
 \title{Convert data to torch format}
 \usage{
-matrix_to_dataset(x, y)
+matrix_to_dataset(x, y, device = NULL)
 }
 \arguments{
 \item{x}{A numeric matrix of predictors.}
 
 \item{y}{A vector. If regression than \code{y} is numeric. For classification, it
 is a factor.}
+
+\item{device}{A single character string for the device to use (e.g., \code{"cpu"}
+or \code{"cuda"}). The default of \code{NULL} uses the CPU. See \link{training_efficiency}.}
 }
 \value{
 An R6 index sampler object with classes "training_set",
@@ -24,7 +27,7 @@ encodings then formats the results for consumption by \code{torch}.
 Missing values should be removed before passing data to this function.
 }
 \examples{
-\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 if (torch::torch_is_installed()) {
   matrix_to_dataset(as.matrix(mtcars[, -1]), mtcars$mpg)
 }

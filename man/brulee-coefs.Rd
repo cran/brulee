@@ -6,6 +6,8 @@
 \alias{coef.brulee_linear_reg}
 \alias{coef.brulee_mlp}
 \alias{coef.brulee_multinomial_reg}
+\alias{coef.brulee_resnet}
+\alias{coef.brulee_rln}
 \title{Extract Model Coefficients}
 \usage{
 \method{coef}{brulee_logistic_reg}(object, epoch = NULL, ...)
@@ -15,6 +17,10 @@
 \method{coef}{brulee_mlp}(object, epoch = NULL, ...)
 
 \method{coef}{brulee_multinomial_reg}(object, epoch = NULL, ...)
+
+\method{coef}{brulee_resnet}(object, epoch = NULL, ...)
+
+\method{coef}{brulee_rln}(object, epoch = NULL, ...)
 }
 \arguments{
 \item{object}{A model fit from \pkg{brulee}.}
@@ -32,7 +38,7 @@ a list of arrays.
 Extract Model Coefficients
 }
 \examples{
-\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))) {
 

@@ -133,6 +133,7 @@ brulee_multinomial_reg.data.frame <-
     class_weights = NULL,
     stop_iter = 5,
     verbose = FALSE,
+    device = NULL,
     ...
   ) {
     processed <- hardhat::mold(x, y)
@@ -150,6 +151,7 @@ brulee_multinomial_reg.data.frame <-
       class_weights = class_weights,
       stop_iter = stop_iter,
       verbose = verbose,
+      device = device,
       ...
     )
   }
@@ -172,6 +174,7 @@ brulee_multinomial_reg.matrix <- function(
   class_weights = NULL,
   stop_iter = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 ) {
   processed <- hardhat::mold(x, y)
@@ -189,6 +192,7 @@ brulee_multinomial_reg.matrix <- function(
     class_weights = class_weights,
     stop_iter = stop_iter,
     verbose = verbose,
+    device = device,
     ...
   )
 }
@@ -212,6 +216,7 @@ brulee_multinomial_reg.formula <-
     class_weights = NULL,
     stop_iter = 5,
     verbose = FALSE,
+    device = NULL,
     ...
   ) {
     processed <- hardhat::mold(formula, data)
@@ -229,6 +234,7 @@ brulee_multinomial_reg.formula <-
       class_weights = class_weights,
       stop_iter = stop_iter,
       verbose = verbose,
+      device = device,
       ...
     )
   }
@@ -252,6 +258,7 @@ brulee_multinomial_reg.recipe <-
     class_weights = NULL,
     stop_iter = 5,
     verbose = FALSE,
+    device = NULL,
     ...
   ) {
     processed <- hardhat::mold(x, data)
@@ -269,6 +276,7 @@ brulee_multinomial_reg.recipe <-
       class_weights = class_weights,
       stop_iter = stop_iter,
       verbose = verbose,
+      device = device,
       ...
     )
   }
@@ -289,80 +297,52 @@ brulee_multinomial_reg_bridge <- function(
   batch_size,
   stop_iter,
   verbose,
-  ...
+  device,
+  ...,
+  call = rlang::caller_env()
 ) {
   if (!torch::torch_is_installed()) {
     cli::cli_abort(
-      "The torch backend has not been installed; use `torch::install_torch()`."
+      "The torch backend has not been installed; use {.run torch::install_torch()}.",
+      call = call
     )
   }
 
-  f_nm <- "brulee_multinomial_reg"
-  # check values of various argument values
-  if (is.numeric(epochs) & !is.integer(epochs)) {
-    epochs <- as.integer(epochs)
-  }
-  check_integer(epochs, single = TRUE, 1, fn = f_nm)
-  if (!is.null(batch_size)) {
-    if (is.numeric(batch_size) & !is.integer(batch_size)) {
-      batch_size <- as.integer(batch_size)
-    }
-    check_integer(batch_size, single = TRUE, 1, fn = f_nm)
-  }
-  check_double(penalty, single = TRUE, 0, incl = c(TRUE, TRUE), fn = f_nm)
-  check_double(mixture, single = TRUE, 0, 1, incl = c(TRUE, TRUE), fn = f_nm)
-  check_double(
-    validation,
-    single = TRUE,
-    0,
-    1,
-    incl = c(TRUE, FALSE),
-    fn = f_nm
+  # Guess device if not specified
+  device <- guess_brulee_device(device)
+
+  # Validate common arguments
+  validated <- validate_common_args(
+    epochs = epochs,
+    batch_size = batch_size,
+    penalty = penalty,
+    mixture = mixture,
+    validation = validation,
+    momentum = momentum,
+    learn_rate = learn_rate,
+    verbose = verbose,
+    call = call
   )
-  check_double(momentum, single = TRUE, 0, 1, incl = c(TRUE, TRUE), fn = f_nm)
-  check_double(learn_rate, single = TRUE, 0, incl = c(FALSE, TRUE), fn = f_nm)
-  check_logical(verbose, single = TRUE, fn = f_nm)
+
+  # Extract validated/coerced values
+  epochs <- validated$epochs
+  batch_size <- validated$batch_size
 
   ## -----------------------------------------------------------------------------
 
-  predictors <- processed$predictors
-
-  if (!is.matrix(predictors)) {
-    predictors <- as.matrix(predictors)
-    if (is.character(predictors)) {
-      cli::cli_abort(
-        paste(
-          "There were some non-numeric columns in the predictors.",
-          "Please use a formula or recipe to encode all of the predictors as numeric."
-        )
-      )
-    }
-  }
-  check_double(penalty, single = TRUE, 0, incl = c(TRUE, TRUE), fn = f_nm)
-  check_double(
-    validation,
-    single = TRUE,
-    0,
-    1,
-    incl = c(TRUE, FALSE),
-    fn = f_nm
-  )
-  check_double(momentum, single = TRUE, 0, 1, incl = c(TRUE, TRUE), fn = f_nm)
-  check_double(learn_rate, single = TRUE, 0, incl = c(FALSE, TRUE), fn = f_nm)
-  check_logical(verbose, single = TRUE, fn = f_nm)
+  # Process predictors
+  predictors <- process_predictors(processed$predictors, call = call)
 
   ## -----------------------------------------------------------------------------
 
-  outcome <- processed$outcomes[[1]]
-  if (length(levels(outcome)) < 3) {
-    cli::cli_abort("multinomial regression is for outcomes with 3+ classes.")
-  }
+  # Validate outcome
+  outcome <- validate_multiclass_outcome(processed$outcomes[[1]], call = call)
 
   # ------------------------------------------------------------------------------
 
   lvls <- levels(outcome)
   xtab <- table(outcome)
-  class_weights <- check_class_weights(class_weights, lvls, xtab, f_nm)
+  class_weights <- check_class_weights(class_weights, lvls, xtab, call = call)
 
   ## -----------------------------------------------------------------------------
 
@@ -380,7 +360,8 @@ brulee_multinomial_reg_bridge <- function(
       batch_size = batch_size,
       class_weights = class_weights,
       stop_iter = stop_iter,
-      verbose = verbose
+      verbose = verbose,
+      device = device
     )
 
   new_brulee_multinomial_reg(
@@ -390,7 +371,9 @@ brulee_multinomial_reg_bridge <- function(
     loss = fit$loss,
     dims = fit$dims,
     y_stats = fit$y_stats,
+    output_type = fit$output_type,
     parameters = fit$parameters,
+    device = fit$device,
     blueprint = processed$blueprint
   )
 }
@@ -402,26 +385,31 @@ new_brulee_multinomial_reg <- function(
   loss,
   dims,
   y_stats,
+  output_type,
   parameters,
+  device,
   blueprint
 ) {
   if (!inherits(model_obj, "raw")) {
-    cli::cli_abort("'model_obj' should be a raw vector.")
+    cli::cli_abort("{.arg model_obj} should be a raw vector.", call = NULL)
   }
   if (!is.list(estimates)) {
-    cli::cli_abort("'parameters' should be a list")
+    cli::cli_abort("{.arg estimates} should be a list.", call = NULL)
   }
   if (!is.vector(loss) || !is.numeric(loss)) {
-    cli::cli_abort("'loss' should be a numeric vector")
+    cli::cli_abort("{.arg loss} should be a numeric vector.", call = NULL)
   }
   if (!is.list(dims)) {
-    cli::cli_abort("'dims' should be a list")
+    cli::cli_abort("{.arg dims} should be a list.", call = NULL)
   }
   if (!is.list(parameters)) {
-    cli::cli_abort("'parameters' should be a list")
+    cli::cli_abort("{.arg parameters} should be a list.", call = NULL)
   }
   if (!inherits(blueprint, "hardhat_blueprint")) {
-    cli::cli_abort("'blueprint' should be a hardhat blueprint")
+    cli::cli_abort(
+      "{.arg blueprint} should be a hardhat blueprint.",
+      call = NULL
+    )
   }
   hardhat::new_model(
     model_obj = model_obj,
@@ -430,7 +418,9 @@ new_brulee_multinomial_reg <- function(
     loss = loss,
     dims = dims,
     y_stats = y_stats,
+    output_type = output_type,
     parameters = parameters,
+    device = device,
     blueprint = blueprint,
     class = "brulee_multinomial_reg"
   )
@@ -454,6 +444,7 @@ multinomial_reg_fit_imp <-
     class_weights = NULL,
     stop_iter = 5,
     verbose = FALSE,
+    device = "cpu",
     ...
   ) {
     torch::torch_manual_seed(sample.int(10^5, 1))
@@ -472,140 +463,102 @@ multinomial_reg_fit_imp <-
 
     lvls <- levels(y)
     y_dim <- length(lvls)
-    # the model will output softmax values.
-    # so we need to use negative likelihood loss and
-    # pass the log of softmax.
     loss_fn <- function(input, target, wts = NULL) {
-      nnf_nll_loss(
-        weight = wts,
-        input = torch::torch_log(input),
-        target = target
+      torch::nnf_cross_entropy(
+        input = input,
+        target = target,
+        weight = weights_to_tensor(wts, device = input$device)
       )
     }
 
-    if (validation > 0) {
-      in_val <- sample(seq_along(y), floor(n * validation))
-      x_val <- x[in_val, , drop = FALSE]
-      y_val <- y[in_val]
-      x <- x[-in_val, , drop = FALSE]
-      y <- y[-in_val]
-    }
+    # Split validation set
+    val_split <- split_validation(x, y, validation)
+    x <- val_split$x_train
+    y <- val_split$y_train
+    x_val <- val_split$x_val
+    y_val <- val_split$y_val
+
     y_stats <- list(mean = NA_real_, sd = NA_real_)
     loss_label <- "\tLoss:"
 
-    if (optimizer == "LBFGS" & !is.null(batch_size)) {
-      cli::cli_warn("'batch_size' is only used for the SGD optimizer.")
-      batch_size <- NULL
-    }
-    if (is.null(batch_size)) {
-      batch_size <- nrow(x)
-    } else {
-      batch_size <- min(batch_size, nrow(x))
-    }
+    # Determine batch size
+    batch_size <- determine_batch_size(batch_size, optimizer, nrow(x))
 
     ## ---------------------------------------------------------------------------
-    # Convert to index sampler and data loader
+    # Set torch dtype for both data and model
 
     or_dtype <- torch::torch_get_default_dtype()
     on.exit(torch::torch_set_default_dtype(or_dtype))
-    torch::torch_set_default_dtype(torch::torch_float64())
-
-    ds <- matrix_to_dataset(x, y)
-    dl <- torch::dataloader(ds, batch_size = batch_size)
-
-    if (validation > 0) {
-      ds_val <- matrix_to_dataset(x_val, y_val)
-      dl_val <- torch::dataloader(ds_val)
-    }
+    torch::torch_set_default_dtype(torch::torch_float32())
 
     ## ---------------------------------------------------------------------------
-    # Initialize model and optimizer
+    # Build the module on the CPU, then move it to `device`. See the
+    # "Device-handling notes" comment block at the top of R/0_utils.R for the
+    # full rationale. Short version: parameter initialization inside
+    # `with_device(mps, ...)` runs against the MPS RNG, which
+    # `torch_manual_seed()` does NOT reliably reset; constructing on the CPU
+    # first uses the properly-seeded CPU RNG so seeds give reproducible
+    # initial weights on every backend.
     model <- multinomial_module(ncol(x), y_dim)
-    loss_fn <- make_penalized_loss(loss_fn, model, penalty, mixture, optimizer)
-    optimizer_obj <- set_optimizer(optimizer, model, learn_rate, momentum)
+    model$to(device = device)
 
-    ## ---------------------------------------------------------------------------
+    # Set device context for training
+    training_output <- torch::with_device(device = device, {
+      # Convert to index sampler and data loader
+      torch_data <- setup_torch_data(
+        x,
+        y,
+        x_val,
+        y_val,
+        batch_size,
+        validation,
+        device = device
+      )
+      dl <- torch_data$dl
+      dl_val <- torch_data$dl_val
 
-    loss_prev <- 10^38
-    loss_min <- loss_prev
-    poor_epoch <- 0
-    best_epoch <- 1
-    loss_vec <- rep(NA_real_, epochs)
-    if (verbose) {
-      epoch_chr <- format(1:epochs)
-    }
-
-    ## -----------------------------------------------------------------------------
-
-    param_per_epoch <- list()
-
-    # Optimize parameters
-    for (epoch in 1:epochs) {
-      learn_rate <- set_learn_rate(epoch - 1, learn_rate, type = "none", ...)
-
-      for (i in seq_along(optimizer_obj$param_groups)) {
-        optimizer_obj$param_groups[[i]]$lr <- learn_rate
-      }
-
-      # training loop
-      coro::loop(
-        for (batch in dl) {
-          cl <- function() {
-            optimizer_obj$zero_grad()
-            pred <- model(batch$x)
-            loss <- loss_fn(pred, batch$y, class_weights)
-            loss$backward()
-            loss
-          }
-          optimizer_obj$step(cl)
-        }
+      ## -------------------------------------------------------------------------
+      # Loss and optimizer (model now lives on the target device)
+      loss_fn <- make_penalized_loss(
+        loss_fn,
+        model,
+        penalty,
+        mixture,
+        optimizer
+      )
+      optimizer_obj <- set_optimizer(
+        optimizer,
+        model,
+        learn_rate,
+        momentum,
+        penalty,
+        mixture
       )
 
-      # calculate loss on the full datasets
-      if (validation > 0) {
-        pred <- model(dl_val$dataset$tensors$x)
-        loss <- loss_fn(pred, dl_val$dataset$tensors$y, class_weights)
-      } else {
-        pred <- model(dl$dataset$tensors$x)
-        loss <- loss_fn(pred, dl$dataset$tensors$y, class_weights)
-      }
+      ## -------------------------------------------------------------------------
 
-      # calculate losses
-      loss_curr <- loss$item()
-      loss_vec[epoch] <- loss_curr
+      # Run training loop
+      training_result <- run_training_loop(
+        model = model,
+        dl = dl,
+        dl_val = dl_val,
+        loss_fn = loss_fn,
+        optimizer_obj = optimizer_obj,
+        epochs = epochs,
+        learn_rate = learn_rate,
+        stop_iter = stop_iter,
+        validation = validation,
+        class_weights = class_weights,
+        loss_label = loss_label,
+        verbose = verbose,
+        ...
+      )
 
-      if (is.nan(loss_curr)) {
-        cli::cli_warn(
-          "Early stopping occurred at epoch {epoch} due to numerical overflow of the loss function."
-        )
-        break()
-      }
-
-      if (loss_curr >= loss_min) {
-        poor_epoch <- poor_epoch + 1
-        loss_note <- paste0(" ", cli::symbol$cross, " ")
-      } else {
-        loss_min <- loss_curr
-        loss_note <- NULL
-        poor_epoch <- 0
-        best_epoch <- epoch
-      }
-      loss_prev <- loss_curr
-
-      # persists models and coefficients
-      param_per_epoch[[epoch]] <-
-        lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
-
-      if (verbose) {
-        cli::cli_inform(
-          "epoch: {epoch_chr[epoch]}, learn rate: {signif(learn_rate, 3)}, {loss_label} {signif(loss_curr, 3)}"
-        )
-      }
-
-      if (poor_epoch == stop_iter) {
-        break()
-      }
-    }
+      list(
+        model = model,
+        training_result = training_result
+      )
+    })
 
     # ------------------------------------------------------------------------------
 
@@ -615,10 +568,10 @@ multinomial_reg_fit_imp <-
     ## ---------------------------------------------------------------------------
 
     list(
-      model_obj = model_to_raw(model),
-      estimates = param_per_epoch,
-      loss = loss_vec[1:length(param_per_epoch)],
-      best_epoch = best_epoch,
+      model_obj = model_to_raw(training_output$model),
+      estimates = training_output$training_result$param_per_epoch,
+      loss = training_output$training_result$loss_vec,
+      best_epoch = training_output$training_result$best_epoch,
       dims = list(
         p = p,
         n = n,
@@ -628,6 +581,7 @@ multinomial_reg_fit_imp <-
         features = colnames(x)
       ),
       y_stats = y_stats,
+      output_type = "logits",
       parameters = list(
         learn_rate = learn_rate,
         penalty = penalty,
@@ -636,7 +590,8 @@ multinomial_reg_fit_imp <-
         class_weights = class_weights,
         batch_size = batch_size,
         momentum = momentum
-      )
+      ),
+      device = device
     )
   }
 
@@ -645,12 +600,11 @@ multinomial_module <-
     "multinomial_reg_module",
     initialize = function(num_pred, num_classes) {
       self$fc1 <- torch::nn_linear(num_pred, num_classes)
-      self$transform <- torch::nn_softmax(dim = 2)
     },
     forward = function(x) {
-      x |>
-        self$fc1() |>
-        self$transform()
+      # Output is raw logits; softmax is applied at predict time so the loss
+      # can use nnf_cross_entropy (numerically stable).
+      self$fc1(x)
     }
   )
 
@@ -664,6 +618,6 @@ get_num_multinomial_reg_coef <- function(x) {
 
 #' @export
 print.brulee_multinomial_reg <- function(x, ...) {
-  cat("Multinomial regression\n\n")
+  cat(cli::style_bold("Multinomial regression"), "\n\n", sep = "")
   brulee_print(x)
 }

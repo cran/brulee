@@ -54,8 +54,9 @@ predict.brulee_logistic_reg <- function(
   epoch = NULL,
   ...
 ) {
+  call <- rlang::current_env()
   forged <- hardhat::forge(new_data, object$blueprint)
-  type <- check_type(object, type)
+  type <- check_type(object, type, call = call)
   if (is.null(epoch)) {
     epoch <- object$best_epoch
   }
@@ -63,40 +64,30 @@ predict.brulee_logistic_reg <- function(
     type,
     object,
     forged$predictors,
-    epoch = epoch
+    epoch = epoch,
+    call = call
   )
 }
 
 # ------------------------------------------------------------------------------
 # Bridge
 
-predict_brulee_logistic_reg_bridge <- function(type, model, predictors, epoch) {
+predict_brulee_logistic_reg_bridge <- function(
+  type,
+  model,
+  predictors,
+  epoch,
+  call = rlang::caller_env()
+) {
   if (!is.matrix(predictors)) {
     predictors <- as.matrix(predictors)
-    if (is.character(predictors)) {
-      cli::cli_abort(
-        paste(
-          "There were some non-numeric columns in the predictors.",
-          "Please use a formula or recipe to encode all of the predictors as numeric."
-        )
-      )
-    }
+    check_character_matrix(predictors, call = call)
   }
 
   predict_function <- get_logistic_reg_predict_function(type)
 
   max_epoch <- length(model$estimates)
-  if (epoch > max_epoch) {
-    msg <- paste(
-      "The model fit only",
-      max_epoch,
-      "epochs; predictions cannot",
-      "be made at epoch",
-      epoch,
-      "so last epoch is used."
-    )
-    cli::cli_warn(msg)
-  }
+  last_epoch_note(epoch, max_epoch, call = call)
 
   predictions <- predict_function(model, predictors, epoch)
   hardhat::validate_prediction_size(predictions, predictors)
@@ -115,17 +106,21 @@ get_logistic_reg_predict_function <- function(type) {
 # Implementation
 
 predict_brulee_logistic_reg_raw <- function(model, predictors, epoch) {
+  # Get safe device (fallback to CPU if trained device unavailable)
+  device <- get_safe_device(model$device)
+
   # convert from raw format
-  module <- revive_model(model$model_obj)
+  module <- revive_model(model$model_obj, device)
   # get current model parameters
   estimates <- model$estimates[[epoch]]
-  # convert to torch representation
-  estimates <- lapply(estimates, float_64)
+  # convert to torch representation on correct device
+  estimates <- lapply(estimates, float_32, device = device)
   # stuff back into the model
   module$load_state_dict(estimates)
   # put the model in evaluation mode
   module$eval()
-  predictions <- module(float_64(predictors))
+  predictions <- module(float_32(predictors, device))
+  predictions <- to_probs(predictions, model)
   predictions <- as.array(predictions)
   # torch doesn't have a NA type so it returns NaN
   predictions[is.nan(predictions)] <- NA

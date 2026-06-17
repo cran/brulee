@@ -39,6 +39,7 @@ brulee_mlp(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -62,6 +63,7 @@ brulee_mlp(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -85,6 +87,7 @@ brulee_mlp(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -108,6 +111,7 @@ brulee_mlp(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -137,6 +141,7 @@ brulee_mlp_two_layer(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -162,6 +167,7 @@ brulee_mlp_two_layer(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -187,6 +193,7 @@ brulee_mlp_two_layer(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 
@@ -212,6 +219,7 @@ brulee_mlp_two_layer(x, ...)
   grad_value_clip = 5,
   grad_norm_clip = 5,
   verbose = FALSE,
+  device = NULL,
   ...
 )
 }
@@ -304,6 +312,10 @@ value. This can be helpful if training stops early with the message that
 
 \item{verbose}{A logical that prints out the iteration history.}
 
+\item{device}{A single character string for the device to train on (e.g.,
+\code{"cpu"} or \code{"cuda"} for GPU). If \code{NULL}, the function will use the GPU if
+available, otherwise CPU. See \link{training_efficiency}.}
+
 \item{formula}{A formula specifying the outcome term(s) on the left-hand side,
 and the predictor term(s) on the right-hand side.}
 
@@ -373,7 +385,7 @@ arguments to the schedulers can be passed via \code{...}.
 }
 }
 \examples{
-\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 
@@ -463,6 +475,9 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
  cls_fit <- brulee_mlp(class ~ ., data = parabolic_tr, hidden_units = 2,
                         epochs = 200L, learn_rate = 0.1, activation = "elu",
                         penalty = 0.1, batch_size = 2^8, optimizer = "SGD")
+
+ summary(cls_fit)
+
  autoplot(cls_fit)
 
  grid_points <- seq(-4, 4, length.out = 100)

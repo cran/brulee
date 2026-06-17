@@ -6,6 +6,10 @@
 \alias{autoplot.brulee_logistic_reg}
 \alias{autoplot.brulee_multinomial_reg}
 \alias{autoplot.brulee_linear_reg}
+\alias{autoplot.brulee_resnet}
+\alias{autoplot.brulee_auto_int}
+\alias{autoplot.brulee_saint}
+\alias{autoplot.brulee_rln}
 \title{Plot model loss over epochs}
 \usage{
 \method{autoplot}{brulee_mlp}(object, ...)
@@ -15,6 +19,14 @@
 \method{autoplot}{brulee_multinomial_reg}(object, ...)
 
 \method{autoplot}{brulee_linear_reg}(object, ...)
+
+\method{autoplot}{brulee_resnet}(object, ...)
+
+\method{autoplot}{brulee_auto_int}(object, ...)
+
+\method{autoplot}{brulee_saint}(object, ...)
+
+\method{autoplot}{brulee_rln}(object, ...)
 }
 \arguments{
 \item{object}{A \code{brulee_mlp}, \code{brulee_logistic_reg},
@@ -33,7 +45,7 @@ This function plots the loss function across the available epochs. A
 vertical line shows the epoch with the best loss value.
 }
 \examples{
-\dontshow{if (!brulee:::is_cran_check()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
 if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
  library(ggplot2)
