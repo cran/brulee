@@ -37,6 +37,8 @@ brulee_auto_int(x, ...)
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -66,6 +68,8 @@ brulee_auto_int(x, ...)
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -95,6 +99,8 @@ brulee_auto_int(x, ...)
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -124,6 +130,8 @@ brulee_auto_int(x, ...)
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -237,6 +245,11 @@ and all other classes receive a weight of one.
 \item{stop_iter}{A non-negative integer for how many iterations with no
 improvement before stopping.}
 
+\item{grad_norm_clip, grad_value_clip}{Two numeric values, possibly \code{Inf},
+that prevents the gradient's values or norm(s) from exceeding the specified
+value. This can be helpful if training stops early with the message that
+\code{"Loss is NaN at epoch x Training is stopped."}}
+
 \item{verbose}{A logical that prints out the iteration history.}
 
 \item{device}{A single character string for the device to train on (e.g.,
@@ -256,10 +269,15 @@ A \code{brulee_auto_int} object with elements:
 \itemize{
 \item \code{models_obj}: a serialized raw vector for the torch module.
 \item \code{estimates}: a list of matrices with the model parameter estimates per
-epoch.
-\item \code{best_epoch}: an integer for the epoch with the smallest loss.
+epoch. The first element is epoch zero (the randomly
+initialized parameters before training), so the list has
+\code{epochs + 1} elements.
+\item \code{best_epoch}: an integer for the epoch with the smallest loss. Since
+\code{estimates} and \code{loss} include epoch zero, this epoch's
+values are at position \code{best_epoch + 1} in those objects.
 \item \code{loss}: A vector of loss values (MSE for regression, negative log-
-likelihood for classification) at each epoch.
+likelihood for classification) at each epoch, starting with
+epoch zero.
 \item \code{dim}: A list of data dimensions and feature metadata.
 \item \code{top_interactions}: A tibble containing the top 10 two-way feature
 interactions.
@@ -368,7 +386,7 @@ used in those packages.
 \dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
 pkgs <- c("recipes", "yardstick", "modeldata")
-if (torch::torch_is_installed() & rlang::is_installed(pkgs)) {
+if (torch::torch_is_installed() && rlang::is_installed(pkgs)) {
 
   set.seed(87261)
   tr_data <- modeldata::sim_regression(500)

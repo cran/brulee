@@ -234,10 +234,15 @@ A \code{brulee_resnet} object with elements:
 \itemize{
 \item \code{models_obj}: a serialized raw vector for the torch module.
 \item \code{estimates}: a list of matrices with the model parameter estimates per
-epoch.
-\item \code{best_epoch}: an integer for the epoch with the smallest loss.
+epoch. The first element is epoch zero (the randomly
+initialized parameters before training), so the list has
+\code{epochs + 1} elements.
+\item \code{best_epoch}: an integer for the epoch with the smallest loss. Since
+\code{estimates} and \code{loss} include epoch zero, this epoch's
+values are at position \code{best_epoch + 1} in those objects.
 \item \code{loss}: A vector of loss values (MSE for regression, negative log-
-likelihood for classification) at each epoch.
+likelihood for classification) at each epoch, starting with
+epoch zero.
 \item \code{dim}: A list of data dimensions.
 \item \code{y_stats}: A list of summary statistics for numeric outcomes.
 \item \code{parameters}: A list of some tuning parameter values.
@@ -324,7 +329,7 @@ used in those packages.
 \examples{
 \dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
-if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
+if (torch::torch_is_installed() && rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 
  ## -----------------------------------------------------------------------------
  # regression examples (increase # epochs to get better results)
@@ -334,7 +339,7 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
  ames$Sale_Price <- log10(ames$Sale_Price)
 
  set.seed(122)
- in_train <- sample(1:nrow(ames), 2000)
+ in_train <- sample(seq_len(nrow(ames)), 2000)
  ames_train <- ames[ in_train,]
  ames_test  <- ames[-in_train,]
 
@@ -369,7 +374,7 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
  data("parabolic", package = "modeldata")
 
  set.seed(1)
- in_train <- sample(1:nrow(parabolic), 300)
+ in_train <- sample(seq_len(nrow(parabolic)), 300)
  parabolic_tr <- parabolic[ in_train,]
  parabolic_te <- parabolic[-in_train,]
 

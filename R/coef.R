@@ -4,7 +4,10 @@ brulee_coefs <- function(object, epoch = NULL, ...) {
     cli::cli_abort("{.arg epoch} should be a single integer.", call = call)
   }
 
-  max_epochs <- length(object$estimates)
+  # All models prepend the initial pre-training parameters as the first element
+  # of `estimates` (epoch zero), so an iteration number is one less than its
+  # position in the list. This offset mirrors the predict() methods.
+  max_epochs <- length(object$estimates) - 1L
 
   if (is.null(epoch)) {
     epoch <- object$best_epoch
@@ -17,7 +20,7 @@ brulee_coefs <- function(object, epoch = NULL, ...) {
       epoch <- max_epochs
     }
   }
-  object$estimates[[epoch]]
+  object$estimates[[epoch + 1L]]
 }
 
 
@@ -31,14 +34,14 @@ brulee_coefs <- function(object, epoch = NULL, ...) {
 #' a list of arrays.
 #' @examplesIf !brulee:::is_cran_check()
 #' \donttest{
-#' if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "modeldata"))) {
+#' if (torch::torch_is_installed() && rlang::is_installed(c("recipes", "modeldata"))) {
 #'
 #'  data(ames, package = "modeldata")
 #'
 #'  ames$Sale_Price <- log10(ames$Sale_Price)
 #'
 #'  set.seed(1)
-#'  in_train <- sample(1:nrow(ames), 2000)
+#'  in_train <- sample(seq_len(nrow(ames)), 2000)
 #'  ames_train <- ames[ in_train,]
 #'  ames_test  <- ames[-in_train,]
 #'

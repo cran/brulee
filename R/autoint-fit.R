@@ -136,10 +136,15 @@
 #' A `brulee_auto_int` object with elements:
 #'  * `models_obj`: a serialized raw vector for the torch module.
 #'  * `estimates`: a list of matrices with the model parameter estimates per
-#'                 epoch.
-#'  * `best_epoch`: an integer for the epoch with the smallest loss.
+#'                 epoch. The first element is epoch zero (the randomly
+#'                 initialized parameters before training), so the list has
+#'                 `epochs + 1` elements.
+#'  * `best_epoch`: an integer for the epoch with the smallest loss. Since
+#'                  `estimates` and `loss` include epoch zero, this epoch's
+#'                  values are at position `best_epoch + 1` in those objects.
 #'  * `loss`: A vector of loss values (MSE for regression, negative log-
-#'            likelihood for classification) at each epoch.
+#'            likelihood for classification) at each epoch, starting with
+#'            epoch zero.
 #'  * `dim`: A list of data dimensions and feature metadata.
 #'  * `top_interactions`: A tibble containing the top 10 two-way feature
 #'                        interactions.
@@ -151,7 +156,7 @@
 #' @examplesIf !brulee:::is_cran_check()
 #' \donttest{
 #' pkgs <- c("recipes", "yardstick", "modeldata")
-#' if (torch::torch_is_installed() & rlang::is_installed(pkgs)) {
+#' if (torch::torch_is_installed() && rlang::is_installed(pkgs)) {
 #'
 #'   set.seed(87261)
 #'   tr_data <- modeldata::sim_regression(500)
@@ -217,6 +222,8 @@ brulee_auto_int.data.frame <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -246,6 +253,8 @@ brulee_auto_int.data.frame <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
     ...
@@ -280,6 +289,8 @@ brulee_auto_int.matrix <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -309,6 +320,8 @@ brulee_auto_int.matrix <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
     ...
@@ -343,6 +356,8 @@ brulee_auto_int.formula <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -376,6 +391,8 @@ brulee_auto_int.formula <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
     ...
@@ -410,6 +427,8 @@ brulee_auto_int.recipe <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
   ...
@@ -439,6 +458,8 @@ brulee_auto_int.recipe <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
     ...
@@ -471,6 +492,8 @@ brulee_auto_int_bridge <- function(
   optimizer,
   batch_size,
   stop_iter,
+  grad_value_clip,
+  grad_norm_clip,
   verbose,
   device,
   ...,
@@ -494,6 +517,8 @@ brulee_auto_int_bridge <- function(
     activation = activation,
     dropout_attn = dropout_attn,
     dropout_embedding = dropout_embedding,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     call = call
   )
 
@@ -507,13 +532,13 @@ brulee_auto_int_bridge <- function(
   check_double(dropout, single = TRUE, 0, 1, incl = c(TRUE, FALSE), call = call)
 
   # Handle batch_size
-  if (!is.null(batch_size) & optimizer != "LBFGS") {
-    if (is.numeric(batch_size) & !is.integer(batch_size)) {
+  if (!is.null(batch_size) && optimizer != "LBFGS") {
+    if (is.numeric(batch_size) && !is.integer(batch_size)) {
       batch_size <- as.integer(batch_size)
     }
     check_integer(batch_size, single = TRUE, 1, call = call)
   }
-  if (is.null(batch_size) & optimizer != "LBFGS") {
+  if (is.null(batch_size) && optimizer != "LBFGS") {
     batch_size <- 256L
   }
 
@@ -580,6 +605,8 @@ brulee_auto_int_bridge <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
     ...
@@ -604,20 +631,11 @@ brulee_auto_int_bridge <- function(
 # Predictor splitting
 
 split_predictors_auto_int <- function(predictors, call = rlang::caller_env()) {
-  cat_idx <- vapply(
+  cat_idx <- purrr::map_lgl(
     predictors,
-    function(col) {
-      is.factor(col) || is.character(col)
-    },
-    logical(1)
+    \(col) is.factor(col) || is.character(col)
   )
-  cont_idx <- vapply(
-    predictors,
-    function(col) {
-      is.numeric(col) || is.integer(col)
-    },
-    logical(1)
-  )
+  cont_idx <- purrr::map_lgl(predictors, \(col) is.numeric(col))
 
   cat_names <- names(predictors)[cat_idx]
   cont_names <- names(predictors)[cont_idx]
@@ -640,13 +658,7 @@ split_predictors_auto_int <- function(predictors, call = rlang::caller_env()) {
         predictors[[nm]] <- as.factor(predictors[[nm]])
       }
     }
-    pred_lvls <- vapply(
-      cat_names,
-      function(nm) {
-        length(levels(predictors[[nm]]))
-      },
-      integer(1)
-    )
+    pred_lvls <- purrr::map_int(cat_names, \(nm) nlevels(predictors[[nm]]))
     names(pred_lvls) <- cat_names
     x_cat <- do.call(
       cbind,
@@ -687,24 +699,26 @@ validate_auto_int_args <- function(
   activation,
   dropout_attn,
   dropout_embedding,
+  grad_value_clip,
+  grad_norm_clip,
   call = rlang::caller_env()
 ) {
-  if (is.numeric(num_embedding) & !is.integer(num_embedding)) {
+  if (is.numeric(num_embedding) && !is.integer(num_embedding)) {
     num_embedding <- as.integer(num_embedding)
   }
   check_integer(num_embedding, single = TRUE, 1, call = call)
 
-  if (is.numeric(num_attn_feat) & !is.integer(num_attn_feat)) {
+  if (is.numeric(num_attn_feat) && !is.integer(num_attn_feat)) {
     num_attn_feat <- as.integer(num_attn_feat)
   }
   check_integer(num_attn_feat, single = TRUE, 1, call = call)
 
-  if (is.numeric(num_attn_heads) & !is.integer(num_attn_heads)) {
+  if (is.numeric(num_attn_heads) && !is.integer(num_attn_heads)) {
     num_attn_heads <- as.integer(num_attn_heads)
   }
   check_integer(num_attn_heads, single = TRUE, 1, call = call)
 
-  if (is.numeric(num_attn_blocks) & !is.integer(num_attn_blocks)) {
+  if (is.numeric(num_attn_blocks) && !is.integer(num_attn_blocks)) {
     num_attn_blocks <- as.integer(num_attn_blocks)
   }
   check_integer(num_attn_blocks, single = TRUE, 1, call = call)
@@ -728,6 +742,23 @@ validate_auto_int_args <- function(
     )
   }
 
+  check_double(
+    grad_value_clip,
+    single = TRUE,
+    0,
+    Inf,
+    incl = c(FALSE, TRUE),
+    call = call
+  )
+  check_double(
+    grad_norm_clip,
+    single = TRUE,
+    0,
+    Inf,
+    incl = c(FALSE, TRUE),
+    call = call
+  )
+
   list(
     num_embedding = num_embedding,
     num_attn_feat = num_attn_feat,
@@ -735,7 +766,9 @@ validate_auto_int_args <- function(
     num_attn_blocks = num_attn_blocks,
     activation = activation,
     dropout_attn = dropout_attn,
-    dropout_embedding = dropout_embedding
+    dropout_embedding = dropout_embedding,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip
   )
 }
 
@@ -841,7 +874,7 @@ new_brulee_auto_int <- function(
     )
   }
 
-  num_items <- purrr::map_int(estimates, length)
+  num_items <- lengths(estimates)
   estimates <- estimates[num_items > 0]
 
   hardhat::new_model(
@@ -891,6 +924,8 @@ auto_int_fit_imp <- function(
   dropout = 0,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = "cpu",
   ...
@@ -902,7 +937,11 @@ auto_int_fit_imp <- function(
 
   n <- length(y)
   p_cat <- length(pred_lvls)
-  p_cont <- if (is.null(x_cont)) 0L else ncol(x_cont)
+  if (is.null(x_cont)) {
+    p_cont <- 0L
+  } else {
+    p_cont <- ncol(x_cont)
+  }
   p <- p_cat + p_cont
   all_features <- c(cat_names, cont_names)
 
@@ -931,11 +970,27 @@ auto_int_fit_imp <- function(
 
   if (validation > 0) {
     in_val <- sample(seq_len(n), floor(n * validation))
-    x_cat_val <- if (!is.null(x_cat)) x_cat[in_val, , drop = FALSE] else NULL
-    x_cont_val <- if (!is.null(x_cont)) x_cont[in_val, , drop = FALSE] else NULL
+    if (!is.null(x_cat)) {
+      x_cat_val <- x_cat[in_val, , drop = FALSE]
+    } else {
+      x_cat_val <- NULL
+    }
+    if (!is.null(x_cont)) {
+      x_cont_val <- x_cont[in_val, , drop = FALSE]
+    } else {
+      x_cont_val <- NULL
+    }
     y_val <- y[in_val]
-    x_cat <- if (!is.null(x_cat)) x_cat[-in_val, , drop = FALSE] else NULL
-    x_cont <- if (!is.null(x_cont)) x_cont[-in_val, , drop = FALSE] else NULL
+    if (!is.null(x_cat)) {
+      x_cat <- x_cat[-in_val, , drop = FALSE]
+    } else {
+      x_cat <- NULL
+    }
+    if (!is.null(x_cont)) {
+      x_cont <- x_cont[-in_val, , drop = FALSE]
+    } else {
+      x_cont <- NULL
+    }
     y <- y[-in_val]
   } else {
     x_cat_val <- NULL
@@ -1009,12 +1064,20 @@ auto_int_fit_imp <- function(
     # the explicit `device =` arg these tensors would land on the CPU and
     # later trigger device-mismatch errors when fed to the MPS/CUDA model.
     make_auto_int_tensors <- function(xc, xn, yv) {
-      t_cat <- if (!is.null(xc)) {
-        torch::torch_tensor(xc, dtype = torch::torch_long(), device = device)
+      if (!is.null(xc)) {
+        t_cat <- torch::torch_tensor(
+          xc,
+          dtype = torch::torch_long(),
+          device = device
+        )
       } else {
-        NULL
+        t_cat <- NULL
       }
-      t_cont <- if (!is.null(xn)) float_32(xn, device = device) else NULL
+      if (!is.null(xn)) {
+        t_cont <- float_32(xn, device = device)
+      } else {
+        t_cont <- NULL
+      }
       if (is.factor(yv)) {
         t_y <- torch::torch_tensor(
           as.numeric(yv),
@@ -1111,6 +1174,8 @@ auto_int_fit_imp <- function(
         batch_size = batch_size,
         momentum = momentum,
         stop_iter = stop_iter,
+        grad_value_clip = grad_value_clip,
+        grad_norm_clip = grad_norm_clip,
         sched = rate_schedule,
         sched_opt = list(...)
       )
@@ -1167,7 +1232,7 @@ auto_int_fit_imp <- function(
 
     param_per_epoch <- vector(mode = "list", length = epochs + 1)
     param_per_epoch[[1]] <-
-      lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
+      purrr::map(model$state_dict(), \(x) torch::as_array(x$cpu()))
 
     res$model_obj <- model_to_raw(model)
     res$estimates <- param_per_epoch[[1]]
@@ -1186,6 +1251,8 @@ auto_int_fit_imp <- function(
       epochs = epochs,
       learn_rate = learn_rate,
       stop_iter = stop_iter,
+      grad_value_clip = grad_value_clip,
+      grad_norm_clip = grad_norm_clip,
       validation = validation,
       class_weights = class_weights,
       loss_label = loss_label,
@@ -1250,6 +1317,8 @@ run_auto_int_training_loop <- function(
   epochs,
   learn_rate,
   stop_iter,
+  grad_value_clip = Inf,
+  grad_norm_clip = Inf,
   validation,
   class_weights = NULL,
   loss_label = "\tLoss:",
@@ -1260,7 +1329,7 @@ run_auto_int_training_loop <- function(
   loss_prev <- 10^38
   loss_min <- loss_prev
   poor_epoch <- 0
-  best_epoch <- 1
+  best_epoch <- 1L
   loss_vec <- rep(NA_real_, epochs)
   param_per_epoch <- list()
 
@@ -1293,6 +1362,26 @@ run_auto_int_training_loop <- function(
           }
 
           loss$backward()
+
+          if (is.finite(grad_value_clip)) {
+            try(
+              torch::nn_utils_clip_grad_value_(
+                model$parameters,
+                grad_value_clip
+              ),
+              silent = TRUE
+            )
+          }
+          if (is.finite(grad_norm_clip)) {
+            try(
+              torch::nn_utils_clip_grad_norm_(
+                model$parameters,
+                grad_norm_clip
+              ),
+              silent = TRUE
+            )
+          }
+
           loss
         }
         optimizer_obj$step(cl)
@@ -1321,6 +1410,12 @@ run_auto_int_training_loop <- function(
     loss_curr <- loss$item()
     loss_vec[epoch] <- loss_curr
 
+    # Save parameters for this epoch before any early-stopping check so the
+    # returned loss curve (including a terminal NaN from numerical overflow)
+    # stays aligned with `param_per_epoch`.
+    param_per_epoch[[epoch]] <-
+      purrr::map(model$state_dict(), \(x) torch::as_array(x$cpu()))
+
     if (is.nan(loss_curr)) {
       cli::cli_warn(
         "Early stopping occurred at epoch {epoch} due to numerical overflow of the loss function."
@@ -1338,9 +1433,6 @@ run_auto_int_training_loop <- function(
 
     loss_prev <- loss_curr
 
-    param_per_epoch[[epoch]] <-
-      lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
-
     if (verbose) {
       cli::cli_inform(
         "epoch: {epoch_chr[epoch]}, learn rate: {sprintf('%.5f', learn_rate)}, {loss_label} {signif(loss_curr, 3)}"
@@ -1354,7 +1446,7 @@ run_auto_int_training_loop <- function(
 
   list(
     param_per_epoch = param_per_epoch,
-    loss_vec = loss_vec[1:length(param_per_epoch)],
+    loss_vec = loss_vec[seq_along(param_per_epoch)],
     best_epoch = best_epoch
   )
 }
@@ -1661,7 +1753,9 @@ print.brulee_auto_int <- function(x, ...) {
 
   if (!is.null(x$loss)) {
     it <- x$best_epoch
-    loss_val <- signif(x$loss[it], 3)
+    # `loss` includes epoch zero at position 1, so the best epoch's loss is at
+    # `it + 1` (matching the predict()/coef() indexing).
+    loss_val <- signif(x$loss[it + 1], 3)
     epoch_str <- cli::pluralize("{it} epoch{?s}")
 
     if (x$parameters$validation > 0) {

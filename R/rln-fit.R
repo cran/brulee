@@ -86,9 +86,14 @@
 #'
 #' A `brulee_rln` object with elements:
 #'  * `model_obj`: a serialized raw vector for the torch module.
-#'  * `estimates`: a list of model parameter matrices per epoch.
-#'  * `best_epoch`: an integer for the epoch with the smallest loss.
-#'  * `loss`: a numeric vector of loss values (scaled MSE) at each epoch.
+#'  * `estimates`: a list of model parameter matrices per epoch. The first
+#'                 element is epoch zero (the randomly initialized parameters
+#'                 before training), so the list has `epochs + 1` elements.
+#'  * `best_epoch`: an integer for the epoch with the smallest loss. Since
+#'                  `estimates` and `loss` include epoch zero, this epoch's
+#'                  values are at position `best_epoch + 1` in those objects.
+#'  * `loss`: a numeric vector of loss values (scaled MSE) at each epoch,
+#'            starting with epoch zero.
 #'  * `dims`: a list of data dimensions.
 #'  * `y_stats`: a list of mean and standard deviation for the outcome.
 #'  * `parameters`: a list of tuning parameter values.
@@ -97,13 +102,13 @@
 #'
 #' @examplesIf !brulee:::is_cran_check()
 #' \donttest{
-#' if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
+#' if (torch::torch_is_installed() && rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 #'
 #'  data(ames, package = "modeldata")
 #'  ames$Sale_Price <- log10(ames$Sale_Price)
 #'
 #'  set.seed(122)
-#'  in_train <- sample(1:nrow(ames), 2000)
+#'  in_train <- sample(seq_len(nrow(ames)), 2000)
 #'  ames_train <- ames[ in_train,]
 #'  ames_test  <- ames[-in_train,]
 #'
@@ -373,8 +378,8 @@ brulee_rln_bridge <- function(
   penalty_average <- log10(penalty_average)
   step_rate <- log10(step_rate)
 
-  if (!is.null(batch_size) & optimizer != "LBFGS") {
-    if (is.numeric(batch_size) & !is.integer(batch_size)) {
+  if (!is.null(batch_size) && optimizer != "LBFGS") {
+    if (is.numeric(batch_size) && !is.integer(batch_size)) {
       batch_size <- as.integer(batch_size)
     }
     check_integer(batch_size, single = TRUE, 1, call = call)
@@ -398,7 +403,7 @@ brulee_rln_bridge <- function(
 
   predictors <- process_predictors(processed$predictors, call = call)
 
-  if (is.null(batch_size) & optimizer != "LBFGS") {
+  if (is.null(batch_size) && optimizer != "LBFGS") {
     batch_size <- 32L
     if (batch_size >= nrow(predictors)) {
       batch_size <- max(2, ceiling(nrow(predictors) / 10))
@@ -488,7 +493,7 @@ new_brulee_rln <- function(
     )
   }
 
-  num_items <- purrr::map_int(estimates, length)
+  num_items <- lengths(estimates)
   estimates <- estimates[num_items > 0]
 
   hardhat::new_model(
@@ -638,7 +643,7 @@ rln_fit_imp <- function(
 
     param_per_epoch <- vector(mode = "list", length = epochs + 1)
     param_per_epoch[[1]] <-
-      lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
+      purrr::map(model$state_dict(), \(x) torch::as_array(x$cpu()))
 
     # No grad_value_clip/grad_norm_clip: the per-weight regularization in
     # on_batch_end keeps weights bounded, making gradient clipping unnecessary
@@ -853,7 +858,9 @@ print.brulee_rln <- function(x, ...) {
 
   if (!is.null(x$loss)) {
     it <- x$best_epoch
-    loss_val <- signif(x$loss[it], 3)
+    # `loss` includes epoch zero at position 1, so the best epoch's loss is at
+    # `it + 1` (matching the predict()/coef() indexing).
+    loss_val <- signif(x$loss[it + 1], 3)
     epoch_str <- cli::pluralize("{it} epoch{?s}")
     if (x$parameters$validation > 0) {
       res_list <- c(

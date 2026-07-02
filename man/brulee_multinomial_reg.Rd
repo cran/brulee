@@ -169,10 +169,15 @@ A \code{brulee_multinomial_reg} object with elements:
 \itemize{
 \item \code{models_obj}: a serialized raw vector for the torch module.
 \item \code{estimates}: a list of matrices with the model parameter estimates per
-epoch.
-\item \code{best_epoch}: an integer for the epoch with the smallest loss.
+epoch. The first element is epoch zero (the randomly
+initialized parameters before training), so the list has
+\code{epochs + 1} elements.
+\item \code{best_epoch}: an integer for the epoch with the smallest loss. Since
+\code{estimates} and \code{loss} include epoch zero, this epoch's
+values are at position \code{best_epoch + 1} in those objects.
 \item \code{loss}: A vector of loss values (MSE for regression, negative log-
-likelihood for classification) at each epoch.
+likelihood for classification) at each epoch, starting with
+epoch zero.
 \item \code{dim}: A list of data dimensions.
 \item \code{parameters}: A list of some tuning parameter values.
 \item \code{blueprint}: The \code{hardhat} blueprint data.
@@ -208,7 +213,7 @@ used in those packages.
 \examples{
 \dontshow{if (!brulee:::is_cran_check()) withAutoprint(\{ # examplesIf}
 \donttest{
-if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
+if (torch::torch_is_installed() && rlang::is_installed(c("recipes", "yardstick", "modeldata"))) {
 
   library(recipes)
   library(yardstick)
@@ -218,7 +223,7 @@ if (torch::torch_is_installed() & rlang::is_installed(c("recipes", "yardstick", 
   penguins <- penguins |> na.omit()
 
   set.seed(122)
-  in_train <- sample(1:nrow(penguins), 200)
+  in_train <- sample(seq_len(nrow(penguins)), 200)
   penguins_train <- penguins[ in_train,]
   penguins_test  <- penguins[-in_train,]
 

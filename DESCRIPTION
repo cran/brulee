@@ -1,6 +1,6 @@
 Package: brulee
 Title: High-Level Modeling Functions with 'torch'
-Version: 1.0.0
+Version: 1.1.0
 Authors@R: c(
     person("Max", "Kuhn", , "max@posit.co", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-2402-136X")),
@@ -17,9 +17,9 @@ BugReports: https://github.com/tidymodels/brulee/issues
 Depends: R (>= 4.1)
 Imports: cli, coro (>= 1.0.1), curl, dplyr, generics, ggplot2, hardhat,
         jsonlite, purrr, rlang (>= 1.1.1), safetensors, stats, tibble,
-        tidyselect, torch (>= 0.13.0), utils
+        tidyselect, torch (>= 0.13.0), utils, withr
 Suggests: covr, lubridate, modeldata, recipes, spelling, testthat,
-        yardstick, withr
+        yardstick
 Config/Needs/website: tidyverse/tidytemplate
 Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
@@ -27,10 +27,10 @@ Encoding: UTF-8
 Language: en-US
 RoxygenNote: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-06-17 02:27:26 UTC; max
+Packaged: 2026-07-02 12:05:18 UTC; max
 Author: Max Kuhn [aut, cre] (ORCID: <https://orcid.org/0000-0003-2402-136X>),
   Daniel Falbel [aut],
   Posit Software, PBC [cph, fnd]
 Maintainer: Max Kuhn <max@posit.co>
 Repository: CRAN
-Date/Publication: 2026-06-17 06:30:02 UTC
+Date/Publication: 2026-07-02 12:40:02 UTC

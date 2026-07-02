@@ -42,7 +42,7 @@
 #' @param dropout_last A number in `[0, 1)` for the dropout rate applied
 #'   between the last hidden layer and the output head. Only has effect when
 #'   `hidden_units` is not `NULL`. Default is 0 (no dropout).
-#' @param use_target_token A logical value. When `TRUE` (the default), a
+#' @param target_token A logical value. When `TRUE` (the default), a
 #'   learnable target token (`[CLS]` in the SAINT paper) is prepended to
 #'   each sample's feature sequence and only its final-layer embedding is
 #'   fed to the head. This matches the architecture described in the SAINT
@@ -68,7 +68,7 @@
 #'    (across samples within the batch).
 #' 3. **Output head**: Pools the transformer output (either the target
 #'    token's embedding or the flattened concatenation of all feature
-#'    embeddings, controlled by `use_target_token`) and projects it through
+#'    embeddings, controlled by `target_token`) and projects it through
 #'    optional hidden layers to the output dimension.
 #'
 #' There is a `summary()` methods that can provide details of the architecture
@@ -112,7 +112,7 @@
 #' SAINT and pass only the embedding correspond to the CLS token through an
 #' MLP to obtain the final prediction."
 #'
-#' With `use_target_token = FALSE`, no target token is added and the head
+#' With `target_token = FALSE`, no target token is added and the head
 #' instead consumes the concatenation of all `n` feature tokens. That
 #' option is provided because the SAINT reference Python implementation
 #' (<https://github.com/somepago/saint>) departs from the paper and uses
@@ -171,11 +171,16 @@
 #' A `brulee_saint` object with elements:
 #'  * `models_obj`: a serialized raw vector for the torch module.
 #'  * `estimates`: a list of matrices with the model parameter estimates per
-#'                 epoch.
-#'  * `best_epoch`: an integer for the epoch with the smallest loss.
+#'                 epoch. The first element is epoch zero (the randomly
+#'                 initialized parameters before training), so the list has
+#'                 `epochs + 1` elements.
+#'  * `best_epoch`: an integer for the epoch with the smallest loss. Since
+#'                  `estimates` and `loss` include epoch zero, this epoch's
+#'                  values are at position `best_epoch + 1` in those objects.
 #'
 #'  * `loss`: A vector of loss values (MSE for regression, negative log-
-#'            likelihood for classification) at each epoch.
+#'            likelihood for classification) at each epoch, starting with
+#'            epoch zero.
 #'  * `dim`: A list of data dimensions and feature metadata.
 #'  * `y_stats`: A list of summary statistics for numeric outcomes.
 #'  * `parameters`: A list of some tuning parameter values.
@@ -185,7 +190,7 @@
 #' @examplesIf !brulee:::is_cran_check()
 #' \donttest{
 #' pkgs <- c("recipes", "yardstick", "modeldata")
-#' if (torch::torch_is_installed() & rlang::is_installed(pkgs)) {
+#' if (torch::torch_is_installed() && rlang::is_installed(pkgs)) {
 #'
 #'  set.seed(87261)
 #'  tr_data <- modeldata::sim_regression(500, method = "worley_1987")
@@ -266,9 +271,11 @@ brulee_saint.data.frame <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
-  use_target_token = TRUE,
+  target_token = TRUE,
   ...
 ) {
   processed <- hardhat::mold(x, y)
@@ -296,9 +303,11 @@ brulee_saint.data.frame <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
-    use_target_token = use_target_token,
+    target_token = target_token,
     ...
   )
 }
@@ -331,9 +340,11 @@ brulee_saint.matrix <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
-  use_target_token = TRUE,
+  target_token = TRUE,
   ...
 ) {
   processed <- hardhat::mold(x, y)
@@ -361,9 +372,11 @@ brulee_saint.matrix <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
-    use_target_token = use_target_token,
+    target_token = target_token,
     ...
   )
 }
@@ -396,9 +409,11 @@ brulee_saint.formula <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
-  use_target_token = TRUE,
+  target_token = TRUE,
   ...
 ) {
   processed <- hardhat::mold(
@@ -430,9 +445,11 @@ brulee_saint.formula <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
-    use_target_token = use_target_token,
+    target_token = target_token,
     ...
   )
 }
@@ -465,9 +482,11 @@ brulee_saint.recipe <- function(
   batch_size = NULL,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = NULL,
-  use_target_token = TRUE,
+  target_token = TRUE,
   ...
 ) {
   processed <- hardhat::mold(x, data)
@@ -495,9 +514,11 @@ brulee_saint.recipe <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
-    use_target_token = use_target_token,
+    target_token = target_token,
     ...
   )
 }
@@ -528,9 +549,11 @@ brulee_saint_bridge <- function(
   optimizer,
   batch_size,
   stop_iter,
+  grad_value_clip,
+  grad_norm_clip,
   verbose,
   device,
-  use_target_token,
+  target_token,
   ...,
   call = rlang::caller_env()
 ) {
@@ -550,7 +573,9 @@ brulee_saint_bridge <- function(
     num_attn_blocks = num_attn_blocks,
     dropout_attn = dropout_attn,
     dropout_hidden = dropout_hidden,
-    use_target_token = use_target_token,
+    target_token = target_token,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     call = call
   )
 
@@ -570,13 +595,13 @@ brulee_saint_bridge <- function(
   )
   check_bool(row_attention_on_predict, call = call)
 
-  if (!is.null(batch_size) & optimizer != "LBFGS") {
-    if (is.numeric(batch_size) & !is.integer(batch_size)) {
+  if (!is.null(batch_size) && optimizer != "LBFGS") {
+    if (is.numeric(batch_size) && !is.integer(batch_size)) {
       batch_size <- as.integer(batch_size)
     }
     check_integer(batch_size, single = TRUE, 1, call = call)
   }
-  if (is.null(batch_size) & optimizer != "LBFGS") {
+  if (is.null(batch_size) && optimizer != "LBFGS") {
     batch_size <- 256L
   }
 
@@ -640,9 +665,11 @@ brulee_saint_bridge <- function(
     batch_size = batch_size,
     class_weights = class_weights,
     stop_iter = stop_iter,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip,
     verbose = verbose,
     device = device,
-    use_target_token = saint_validated$use_target_token,
+    target_token = saint_validated$target_token,
     ...
   )
 
@@ -670,20 +697,22 @@ validate_saint_args <- function(
   num_attn_blocks,
   dropout_attn,
   dropout_hidden,
-  use_target_token,
+  target_token,
+  grad_value_clip,
+  grad_norm_clip,
   call = rlang::caller_env()
 ) {
-  if (is.numeric(num_embedding) & !is.integer(num_embedding)) {
+  if (is.numeric(num_embedding) && !is.integer(num_embedding)) {
     num_embedding <- as.integer(num_embedding)
   }
   check_integer(num_embedding, single = TRUE, 1, call = call)
 
-  if (is.numeric(num_attn_heads) & !is.integer(num_attn_heads)) {
+  if (is.numeric(num_attn_heads) && !is.integer(num_attn_heads)) {
     num_attn_heads <- as.integer(num_attn_heads)
   }
   check_integer(num_attn_heads, single = TRUE, 1, call = call)
 
-  if (is.numeric(num_attn_blocks) & !is.integer(num_attn_blocks)) {
+  if (is.numeric(num_attn_blocks) && !is.integer(num_attn_blocks)) {
     num_attn_blocks <- as.integer(num_attn_blocks)
   }
   check_integer(num_attn_blocks, single = TRUE, 1, call = call)
@@ -696,7 +725,7 @@ validate_saint_args <- function(
     )
   }
 
-  check_bool(use_target_token, call = call)
+  check_bool(target_token, call = call)
 
   check_double(dropout_attn, single = TRUE, 0, call = call)
   if (dropout_attn >= 1) {
@@ -708,6 +737,23 @@ validate_saint_args <- function(
     cli::cli_abort("{.arg dropout_hidden} must be less than 1.", call = call)
   }
 
+  check_double(
+    grad_value_clip,
+    single = TRUE,
+    0,
+    Inf,
+    incl = c(FALSE, TRUE),
+    call = call
+  )
+  check_double(
+    grad_norm_clip,
+    single = TRUE,
+    0,
+    Inf,
+    incl = c(FALSE, TRUE),
+    call = call
+  )
+
   list(
     num_embedding = num_embedding,
     attention_type = attention_type,
@@ -715,7 +761,9 @@ validate_saint_args <- function(
     num_attn_blocks = num_attn_blocks,
     dropout_attn = dropout_attn,
     dropout_hidden = dropout_hidden,
-    use_target_token = use_target_token
+    target_token = target_token,
+    grad_value_clip = grad_value_clip,
+    grad_norm_clip = grad_norm_clip
   )
 }
 
@@ -762,7 +810,7 @@ new_brulee_saint <- function(
     )
   }
 
-  num_items <- purrr::map_int(estimates, length)
+  num_items <- lengths(estimates)
   estimates <- estimates[num_items > 0]
 
   hardhat::new_model(
@@ -811,9 +859,11 @@ saint_fit_imp <- function(
   momentum = 0.0,
   class_weights = NULL,
   stop_iter = 5,
+  grad_value_clip = 5,
+  grad_norm_clip = 5,
   verbose = FALSE,
   device = "cpu",
-  use_target_token = TRUE,
+  target_token = TRUE,
   ...
 ) {
   start_seed <- sample.int(10^5, 1)
@@ -823,7 +873,11 @@ saint_fit_imp <- function(
 
   n <- length(y)
   p_cat <- length(pred_lvls)
-  p_cont <- if (is.null(x_cont)) 0L else ncol(x_cont)
+  if (is.null(x_cont)) {
+    p_cont <- 0L
+  } else {
+    p_cont <- ncol(x_cont)
+  }
   p <- p_cat + p_cont
   all_features <- c(cat_names, cont_names)
 
@@ -851,11 +905,27 @@ saint_fit_imp <- function(
 
   if (validation > 0) {
     in_val <- sample(seq_len(n), floor(n * validation))
-    x_cat_val <- if (!is.null(x_cat)) x_cat[in_val, , drop = FALSE] else NULL
-    x_cont_val <- if (!is.null(x_cont)) x_cont[in_val, , drop = FALSE] else NULL
+    if (!is.null(x_cat)) {
+      x_cat_val <- x_cat[in_val, , drop = FALSE]
+    } else {
+      x_cat_val <- NULL
+    }
+    if (!is.null(x_cont)) {
+      x_cont_val <- x_cont[in_val, , drop = FALSE]
+    } else {
+      x_cont_val <- NULL
+    }
     y_val <- y[in_val]
-    x_cat <- if (!is.null(x_cat)) x_cat[-in_val, , drop = FALSE] else NULL
-    x_cont <- if (!is.null(x_cont)) x_cont[-in_val, , drop = FALSE] else NULL
+    if (!is.null(x_cat)) {
+      x_cat <- x_cat[-in_val, , drop = FALSE]
+    } else {
+      x_cat <- NULL
+    }
+    if (!is.null(x_cont)) {
+      x_cont <- x_cont[-in_val, , drop = FALSE]
+    } else {
+      x_cont <- NULL
+    }
     y <- y[-in_val]
   } else {
     x_cat_val <- NULL
@@ -914,7 +984,7 @@ saint_fit_imp <- function(
     hidden_units = hidden_units,
     hidden_activations = hidden_activations,
     y_dim = y_dim,
-    use_target_token = use_target_token
+    target_token = target_token
   )
   model$to(device = device)
 
@@ -926,12 +996,20 @@ saint_fit_imp <- function(
     # the explicit `device =` arg these tensors would land on the CPU and
     # later trigger device-mismatch errors when fed to the MPS/CUDA model.
     make_saint_tensors <- function(xc, xn, yv) {
-      t_cat <- if (!is.null(xc)) {
-        torch::torch_tensor(xc, dtype = torch::torch_long(), device = device)
+      if (!is.null(xc)) {
+        t_cat <- torch::torch_tensor(
+          xc,
+          dtype = torch::torch_long(),
+          device = device
+        )
       } else {
-        NULL
+        t_cat <- NULL
       }
-      t_cont <- if (!is.null(xn)) float_32(xn, device = device) else NULL
+      if (!is.null(xn)) {
+        t_cont <- float_32(xn, device = device)
+      } else {
+        t_cont <- NULL
+      }
       if (is.factor(yv)) {
         t_y <- torch::torch_tensor(
           as.numeric(yv),
@@ -1025,8 +1103,10 @@ saint_fit_imp <- function(
         batch_size = batch_size,
         momentum = momentum,
         stop_iter = stop_iter,
+        grad_value_clip = grad_value_clip,
+        grad_norm_clip = grad_norm_clip,
         sched = rate_schedule,
-        use_target_token = use_target_token,
+        target_token = target_token,
         sched_opt = list(...)
       )
     )
@@ -1081,7 +1161,7 @@ saint_fit_imp <- function(
 
     param_per_epoch <- vector(mode = "list", length = epochs + 1)
     param_per_epoch[[1]] <-
-      lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
+      purrr::map(model$state_dict(), \(x) torch::as_array(x$cpu()))
 
     res$model_obj <- model_to_raw(model)
     res$estimates <- param_per_epoch[[1]]
@@ -1100,6 +1180,8 @@ saint_fit_imp <- function(
       epochs = epochs,
       learn_rate = learn_rate,
       stop_iter = stop_iter,
+      grad_value_clip = grad_value_clip,
+      grad_norm_clip = grad_norm_clip,
       validation = validation,
       class_weights = class_weights,
       loss_label = loss_label,
@@ -1146,6 +1228,8 @@ run_saint_training_loop <- function(
   epochs,
   learn_rate,
   stop_iter,
+  grad_value_clip = Inf,
+  grad_norm_clip = Inf,
   validation,
   class_weights = NULL,
   loss_label = "\tLoss:",
@@ -1190,6 +1274,26 @@ run_saint_training_loop <- function(
           }
 
           loss$backward()
+
+          if (is.finite(grad_value_clip)) {
+            try(
+              torch::nn_utils_clip_grad_value_(
+                model$parameters,
+                grad_value_clip
+              ),
+              silent = TRUE
+            )
+          }
+          if (is.finite(grad_norm_clip)) {
+            try(
+              torch::nn_utils_clip_grad_norm_(
+                model$parameters,
+                grad_norm_clip
+              ),
+              silent = TRUE
+            )
+          }
+
           loss
         }
         optimizer_obj$step(cl)
@@ -1219,6 +1323,12 @@ run_saint_training_loop <- function(
     loss_curr <- loss$item()
     loss_vec[epoch] <- loss_curr
 
+    # Save parameters for this epoch before any early-stopping check so the
+    # returned loss curve (including a terminal NaN from numerical overflow)
+    # stays aligned with `param_per_epoch`.
+    param_per_epoch[[epoch]] <-
+      purrr::map(model$state_dict(), \(x) torch::as_array(x$cpu()))
+
     if (is.nan(loss_curr)) {
       cli::cli_warn(
         "Early stopping occurred at epoch {epoch} due to numerical overflow of the loss function."
@@ -1236,9 +1346,6 @@ run_saint_training_loop <- function(
 
     loss_prev <- loss_curr
 
-    param_per_epoch[[epoch]] <-
-      lapply(model$state_dict(), function(x) torch::as_array(x$cpu()))
-
     if (verbose) {
       cli::cli_inform(
         "epoch: {epoch_chr[epoch]}, learn rate: {sprintf('%.5f', learn_rate)}, {loss_label} {signif(loss_curr, 3)}"
@@ -1252,7 +1359,7 @@ run_saint_training_loop <- function(
 
   list(
     param_per_epoch = param_per_epoch,
-    loss_vec = loss_vec[1:length(param_per_epoch)],
+    loss_vec = loss_vec[seq_along(param_per_epoch)],
     best_epoch = best_epoch
   )
 }
@@ -1458,12 +1565,12 @@ saint_embedding_module <- torch::nn_module(
     pred_lvls,
     n_continuous,
     num_embedding,
-    use_target_token = FALSE
+    target_token = FALSE
   ) {
     self$n_cat <- length(pred_lvls)
     self$n_cont <- n_continuous
     self$num_embedding <- num_embedding
-    self$use_target_token <- isTRUE(use_target_token)
+    self$target_token <- isTRUE(target_token)
 
     if (self$n_cat > 0) {
       self$cat_embeddings <- torch::nn_module_list(lapply(
@@ -1490,8 +1597,8 @@ saint_embedding_module <- torch::nn_module(
       ))
     }
 
-    if (self$use_target_token) {
-      self$target_token <- torch::nn_parameter(
+    if (self$target_token) {
+      self$target_token_weight <- torch::nn_parameter(
         torch::torch_randn(1L, 1L, num_embedding)
       )
     }
@@ -1517,9 +1624,9 @@ saint_embedding_module <- torch::nn_module(
 
     feats <- torch::torch_cat(parts, dim = 2L)
 
-    if (self$use_target_token) {
+    if (self$target_token) {
       batch <- feats$shape[1]
-      tgt <- self$target_token$expand(c(batch, 1L, self$num_embedding))
+      tgt <- self$target_token_weight$expand(c(batch, 1L, self$num_embedding))
       feats <- torch::torch_cat(list(tgt, feats), dim = 2L)
     }
 
@@ -1542,19 +1649,19 @@ saint_module <- torch::nn_module(
     hidden_units,
     hidden_activations,
     y_dim,
-    use_target_token = FALSE
+    target_token = FALSE
   ) {
     num_features <- length(pred_lvls) + n_continuous
     self$num_features <- num_features
     self$num_embedding <- num_embedding
-    self$use_target_token <- isTRUE(use_target_token)
-    seq_len <- num_features + as.integer(self$use_target_token)
+    self$target_token <- isTRUE(target_token)
+    seq_len <- num_features + as.integer(self$target_token)
 
     self$embedding <- saint_embedding_module(
       pred_lvls = pred_lvls,
       n_continuous = n_continuous,
       num_embedding = num_embedding,
-      use_target_token = self$use_target_token
+      target_token = self$target_token
     )
 
     if (attention_type == "column") {
@@ -1579,10 +1686,10 @@ saint_module <- torch::nn_module(
       )
     }
 
-    head_input_dim <- if (self$use_target_token) {
-      num_embedding
+    if (self$target_token) {
+      head_input_dim <- num_embedding
     } else {
-      seq_len * num_embedding
+      head_input_dim <- seq_len * num_embedding
     }
 
     if (!is.null(hidden_units)) {
@@ -1617,7 +1724,7 @@ saint_module <- torch::nn_module(
     embeds <- self$embedding(x_cat, x_cont)
     h <- self$backbone(embeds)
 
-    if (self$use_target_token) {
+    if (self$target_token) {
       h_pooled <- h[, 1L, ]
     } else {
       h_pooled <- h$reshape(c(h$shape[1], -1L))
@@ -1636,10 +1743,6 @@ saint_module <- torch::nn_module(
 )
 
 ## -----------------------------------------------------------------------------
-
-get_num_saint_coef <- function(x) {
-  length(unlist(x$estimates[[1]]))
-}
 
 #' @export
 print.brulee_saint <- function(x, ...) {
@@ -1716,7 +1819,9 @@ print.brulee_saint <- function(x, ...) {
 
   if (!is.null(x$loss)) {
     it <- x$best_epoch
-    loss_val <- signif(x$loss[it], 3)
+    # `loss` includes epoch zero at position 1, so the best epoch's loss is at
+    # `it + 1` (matching the predict()/coef() indexing).
+    loss_val <- signif(x$loss[it + 1], 3)
     epoch_str <- cli::pluralize("{it} epoch{?s}")
 
     if (x$parameters$validation > 0) {

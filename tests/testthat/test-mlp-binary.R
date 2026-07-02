@@ -17,7 +17,7 @@ test_that("basic binomial mlp LBFGS", {
   rec <-
     recipe(class ~ ., data = bin_tr) |>
     step_normalize(all_predictors())
-  num_class <- length(levels(bin_tr$class))
+  num_class <- nlevels(bin_tr$class)
 
   # ------------------------------------------------------------------------------
 
@@ -55,9 +55,8 @@ test_that("basic binomial mlp LBFGS", {
     }
   )
 
-  expect_no_error(
-    bin_pred_lbfgs <-
-      predict(bin_fit_lbfgs, bin_te) |>
+  bin_pred_lbfgs <- expect_no_error(
+    predict(bin_fit_lbfgs, bin_te) |>
       bind_cols(predict(bin_fit_lbfgs, bin_te, type = "prob")) |>
       bind_cols(bin_te) |>
       select(starts_with(".pred"), class)
@@ -111,7 +110,7 @@ test_that("basic binomial mlp SGD", {
   rec <-
     recipe(class ~ ., data = bin_tr) |>
     step_normalize(all_predictors())
-  num_class <- length(levels(bin_tr$class))
+  num_class <- nlevels(bin_tr$class)
 
   # ------------------------------------------------------------------------------
 
@@ -125,7 +124,7 @@ test_that("basic binomial mlp SGD", {
           bin_tr,
           epochs = 200,
           penalty = 0,
-          dropout = .1,
+          dropout = 0.1,
           hidden_units = 5,
           optimize = "SGD",
           batch_size = 64L,
@@ -146,7 +145,7 @@ test_that("basic binomial mlp SGD", {
           bin_tr,
           epochs = 200,
           penalty = 0,
-          dropout = .1,
+          dropout = 0.1,
           hidden_units = 5,
           optimize = "SGD",
           batch_size = 64L,
@@ -157,9 +156,8 @@ test_that("basic binomial mlp SGD", {
     }
   )
 
-  expect_no_error(
-    bin_pred_sgd <-
-      predict(bin_fit_sgd, bin_te) |>
+  bin_pred_sgd <- expect_no_error(
+    predict(bin_fit_sgd, bin_te) |>
       bind_cols(predict(bin_fit_sgd, bin_te, type = "prob")) |>
       bind_cols(bin_te) |>
       select(starts_with(".pred"), class)
@@ -213,7 +211,7 @@ test_that("binomial mlp case weights", {
   rec <-
     recipe(class ~ ., data = bin_tr) |>
     step_normalize(all_predictors())
-  num_class <- length(levels(bin_tr$class))
+  num_class <- nlevels(bin_tr$class)
 
   # ------------------------------------------------------------------------------
 
@@ -235,9 +233,8 @@ test_that("binomial mlp case weights", {
     }
   )
 
-  expect_no_error(
-    weighted_pred <-
-      predict(weighted, bin_te) |>
+  weighted_pred <- expect_no_error(
+    predict(weighted, bin_te) |>
       bind_cols(predict(weighted, bin_te, type = "prob")) |>
       bind_cols(bin_te) |>
       select(starts_with(".pred"), class)
@@ -260,9 +257,8 @@ test_that("binomial mlp case weights", {
     }
   )
 
-  expect_no_error(
-    unweighted_pred <-
-      predict(unweighted, bin_te) |>
+  unweighted_pred <- expect_no_error(
+    predict(unweighted, bin_te) |>
       bind_cols(predict(unweighted, bin_te, type = "prob")) |>
       bind_cols(bin_te) |>
       select(starts_with(".pred"), class)
@@ -296,4 +292,46 @@ test_that('linear activations', {
       silent = TRUE
     )
   expect_s3_class(nn_log_biv, "brulee_mlp")
+})
+
+test_that("mlp gradient clipping prevents loss overflow", {
+  skip_on_cran()
+  skip_if_not_installed("torch")
+
+  set.seed(386)
+  n <- 200
+  df <- data.frame(x1 = rnorm(n), x2 = rnorm(n), x3 = rnorm(n))
+  df$class <- factor(ifelse(df$x1 - df$x2 + rnorm(n) > 0, "a", "b"))
+
+  mlp_args <- list(
+    class ~ .,
+    data = df,
+    hidden_units = 64L,
+    learn_rate = 100,
+    momentum = 0.9,
+    optimizer = "SGD",
+    batch_size = 16L,
+    epochs = 10L,
+    stop_iter = 100L,
+    validation = 0,
+    device = "cpu",
+    verbose = FALSE
+  )
+
+  # Without clipping, the aggressive learning rate overflows the loss
+  set.seed(386)
+  torch::torch_manual_seed(386)
+  expect_snapshot_warning(
+    no_clip <- do.call(
+      brulee_mlp,
+      c(mlp_args, grad_value_clip = Inf, grad_norm_clip = Inf)
+    )
+  )
+  expect_true(any(is.nan(no_clip$loss)))
+
+  # With the default clipping, training completes without overflow
+  set.seed(386)
+  torch::torch_manual_seed(386)
+  clipped <- do.call(brulee_mlp, mlp_args)
+  expect_false(any(is.nan(clipped$loss)))
 })
