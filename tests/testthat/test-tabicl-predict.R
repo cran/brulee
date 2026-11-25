@@ -201,3 +201,134 @@ test_that("a classification fit rejects the regression-only types", {
   expect_snapshot(error = TRUE, predict(fit, x_test, type = "quantile"))
   expect_snapshot(error = TRUE, predict(fit, x_test, type = "variance"))
 })
+
+test_that("zero rows of new data give zero-row predictions of every type", {
+  skip_if_no_tabicl_fixtures("engine_reg")
+  skip_if_no_tabicl_fixtures("engine_clf")
+  # The model isn't run for an empty test set.
+  local_mocked_bindings(
+    tabicl_load_model = function(...) stop("the model shouldn't be loaded")
+  )
+
+  f <- tabicl_load_fixture("engine_reg")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_reg"))
+  d <- tabicl_reg_data(f)
+  fit <- brulee_tab_icl(d$x_train, d$y_train, num_estimators = 1L)
+  none <- d$x_test[0, , drop = FALSE]
+  expect_identical(predict(fit, none), tibble::tibble(.pred = numeric()))
+  q <- predict(fit, none, type = "quantile", quantile_levels = c(0.1, 0.9))
+  expect_identical(nrow(q), 0L)
+  expect_s3_class(q$.pred_quantile, "quantile_pred")
+  expect_identical(
+    hardhat::extract_quantile_levels(q$.pred_quantile),
+    c(0.1, 0.9)
+  )
+  expect_identical(
+    predict(fit, none, type = "variance"),
+    tibble::tibble(.pred_variance = numeric())
+  )
+
+  f <- tabicl_load_fixture("engine_clf")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_clf"))
+  x_train <- as.data.frame(as.matrix(as.array(f$X_train)))
+  y_train <- factor(as.integer(as.numeric(as.array(f$y_train))))
+  fit <- brulee_tab_icl(x_train, y_train, num_estimators = 1L)
+  none <- x_train[0, , drop = FALSE]
+  probs <- predict(fit, none, type = "prob")
+  expect_named(probs, paste0(".pred_", levels(y_train)))
+  expect_identical(nrow(probs), 0L)
+  cls <- predict(fit, none)
+  expect_identical(cls$.pred_class, factor(character(), levels(y_train)))
+})
+
+# ------------------------------------------------------------------------------
+# Predictors that are constant in the training rows (#145). The ensemble drops
+# them before the forward pass, so the members' feature permutations must be
+# over the remaining columns.
+
+test_that("a constant predictor is dropped rather than breaking predict()", {
+  skip_if_no_tabicl_fixtures("engine_reg")
+  f <- tabicl_load_fixture("engine_reg")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_reg"))
+  d <- tabicl_reg_data(f)
+
+  x_train <- d$x_train
+  x_train$con <- 3
+  x_test <- d$x_test
+  x_test$con <- 3
+
+  fit_base <- brulee_tab_icl(d$x_train, d$y_train, num_estimators = 1L)
+  fit_con <- brulee_tab_icl(x_train, d$y_train, num_estimators = 1L)
+  expect_equal(
+    predict(fit_con, x_test, type = "quantile"),
+    predict(fit_base, d$x_test, type = "quantile")
+  )
+
+  set.seed(1)
+  fit_ens <- brulee_tab_icl(x_train, d$y_train, num_estimators = 4L)
+  for (type in c("numeric", "quantile", "variance")) {
+    expect_identical(nrow(predict(fit_ens, x_test, type = type)), nrow(x_test))
+  }
+})
+
+test_that("a constant predictor is dropped for classification too", {
+  skip_if_no_tabicl_fixtures("engine_clf")
+  f <- tabicl_load_fixture("engine_clf")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_clf"))
+
+  x_train <- as.data.frame(as.matrix(as.array(f$X_train)))
+  y_train <- factor(as.integer(as.array(f$y_train)))
+  x_test <- as.data.frame(as.matrix(as.array(f$X_test)))
+  names(x_test) <- names(x_train)
+
+  fit_base <- brulee_tab_icl(x_train, y_train, num_estimators = 1L)
+  x_train$con <- 3
+  x_test$con <- 3
+  fit_con <- brulee_tab_icl(x_train, y_train, num_estimators = 1L)
+  expect_equal(
+    predict(fit_con, x_test, type = "prob"),
+    predict(fit_base, x_test[names(x_test) != "con"], type = "prob")
+  )
+
+  set.seed(1)
+  fit_ens <- brulee_tab_icl(x_train, y_train, num_estimators = 4L)
+  expect_identical(nrow(predict(fit_ens, x_test, type = "prob")), nrow(x_test))
+})
+
+test_that("training_set_limit can make a rare predictor constant (#145)", {
+  skip_if_no_tabicl_fixtures("engine_reg")
+  f <- tabicl_load_fixture("engine_reg")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_reg"))
+  d <- tabicl_reg_data(f)
+
+  d$x_train$rare <- c(1, rep(0, nrow(d$x_train) - 1))
+  d$x_test$rare <- c(1, rep(0, nrow(d$x_test) - 1))
+
+  # This seed drops the only row with `rare = 1`.
+  set.seed(1)
+  fit <- brulee_tab_icl(
+    d$x_train,
+    d$y_train,
+    num_estimators = 4L,
+    training_set_limit = 10
+  )
+  expect_length(unique(fit$train_x[, "rare"]), 1)
+  expect_identical(nrow(predict(fit, d$x_test)), nrow(d$x_test))
+})
+
+test_that("a fit with no varying predictor is refused", {
+  skip_if_no_tabicl_fixtures("engine_reg")
+  f <- tabicl_load_fixture("engine_reg")
+  tabicl_local_cache(f, tabicl_fixture_meta("engine_reg"))
+  d <- tabicl_reg_data(f)
+
+  con <- data.frame(con = rep(3, nrow(d$x_train)))
+  expect_snapshot(error = TRUE, brulee_tab_icl(con, d$y_train))
+
+  rare <- data.frame(rare = c(1, rep(0, nrow(d$x_train) - 1)))
+  set.seed(1)
+  expect_snapshot(
+    error = TRUE,
+    brulee_tab_icl(rare, d$y_train, training_set_limit = 10)
+  )
+})

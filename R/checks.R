@@ -1,5 +1,80 @@
 # Additional type checkers designed for testing argument values.
 
+# A foundation model drops predictors that are constant in its training rows
+# (see `brulee_varying_columns()`), so if none varies there is nothing left to
+# condition on. `x` is the encoded predictor matrix. When `training_set_limit`
+# dropped rows, the sample may be what removed the variation.
+check_predictors_vary <- function(
+  x,
+  subsampled = FALSE,
+  call = rlang::caller_env()
+) {
+  if (any(brulee_varying_columns(x))) {
+    return(invisible(x))
+  }
+  if (subsampled) {
+    hint <- c(
+      i = "The rows kept by {.arg training_set_limit} may have removed their
+           variation; a larger limit can keep it."
+    )
+  } else {
+    hint <- character(0)
+  }
+  cli::cli_abort(
+    c(
+      "Every predictor has a single value in the training data, so there is
+       nothing to learn from.",
+      hint
+    ),
+    call = call
+  )
+}
+
+# A numeric outcome with a single distinct value (ignoring missing values)
+# leaves nothing to learn, and the models' outcome scaling divides by its
+# spread. Factor outcomes are left to the classification checks.
+check_outcome_varies <- function(outcome, call = rlang::caller_env()) {
+  if (!is.numeric(outcome)) {
+    return(invisible(outcome))
+  }
+  values <- unique(outcome[!is.na(outcome)])
+  if (length(values) == 1) {
+    cli::cli_abort(
+      c(
+        "The outcome has a single value ({.val {values}}), so there is
+         nothing to predict.",
+        i = "A numeric outcome needs at least two distinct values."
+      ),
+      call = call
+    )
+  }
+  invisible(outcome)
+}
+
+# A softmax temperature divides the logits, so it must be positive and
+# finite; 0 would give infinite logits and NaN predictions.
+check_softmax_temperature <- function(
+  x,
+  allow_null = FALSE,
+  arg = rlang::caller_arg(x),
+  call = rlang::caller_env()
+) {
+  check_number_decimal(
+    x,
+    allow_infinite = FALSE,
+    allow_null = allow_null,
+    arg = arg,
+    call = call
+  )
+  if (!is.null(x) && x <= 0) {
+    cli::cli_abort(
+      "{.arg {arg}} must be greater than 0, not {.val {x}}.",
+      call = call
+    )
+  }
+  invisible(x)
+}
+
 check_number_whole_vec <- function(
   x,
   call = rlang::caller_env(),
